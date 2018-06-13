@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<Authors>John Knoop</Authors>
+		<Company />
+		<Description>TinyDancer is a high-level abstraction layer on top of the Azure Service Bus client.</Description>
+		<PackageTags>azure servicebus service bus message queue</PackageTags>
+		<PackageProjectUrl>https://github.com/johnknoop/TinyDancer</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/johnknoop/TinyDancer</RepositoryUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="MessagePack" Version="1.7.3.4" />
+		<PackageReference Include="NodaTime" Version="2.2.1" />
+		<PackageReference Include="NodaTime.Serialization.JsonNet" Version="2.0.0" />
+		<PackageReference Include="Microsoft.Azure.ServiceBus" Version="2.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+	</ItemGroup>
+
+</Project>
