@@ -2,7 +2,7 @@
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public delegate Task ExceptionHandler<in TException>(IReceiverClient client, Message message, TException exception);
 	public delegate Task SessionExceptionHandler<in TException>(IMessageSession session, Message message, TException exception);

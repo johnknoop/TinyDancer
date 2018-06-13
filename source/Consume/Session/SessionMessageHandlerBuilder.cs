@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using MessagePack;
 using Microsoft.Azure.ServiceBus;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume.Session
+namespace TinyDancer.Consume.Session
 {
 	public class SessionMessageHandlerBuilder
 	{

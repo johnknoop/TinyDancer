@@ -1,7 +1,7 @@
 ﻿using Microsoft.Azure.ServiceBus;
-using Zwiftly.SharedLibrary.ServiceBusExtensions.Consume.Session;
+using TinyDancer.Consume.Session;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public static class QueueClientExtensions
 	{

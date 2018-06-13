@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 using NodaTime;
 using NodaTime.Serialization.JsonNet;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public static class SerializationExtensions
 	{

@@ -2,7 +2,7 @@
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public delegate Task UnrecognizedMessageHandler(IReceiverClient client, Message message);
 }

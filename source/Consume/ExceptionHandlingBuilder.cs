@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public class ExceptionHandlingBuilder<TException> where TException : Exception
 	{

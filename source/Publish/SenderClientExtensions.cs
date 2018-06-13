@@ -6,7 +6,7 @@ using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Publish
+namespace TinyDancer.Publish
 {
 	public static class SenderClientExtensions
 	{

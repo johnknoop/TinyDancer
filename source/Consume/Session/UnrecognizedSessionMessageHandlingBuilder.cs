@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Azure.ServiceBus;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume.Session
+namespace TinyDancer.Consume.Session
 {
 	public class UnrecognizedSessionMessageHandlingBuilder
 	{

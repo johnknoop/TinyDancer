@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public delegate Task AsyncMessageHandler<in TMessage>(TMessage message);
 }

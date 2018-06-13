@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Azure.ServiceBus;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public class UnrecognizedMessageHandlingBuilder
 	{

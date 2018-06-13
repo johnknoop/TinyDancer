@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
-using Zwiftly.SharedLibrary.ServiceBusExtensions.Consume.Session;
+using TinyDancer.Consume.Session;
 
-namespace Zwiftly.SharedLibrary.ServiceBusExtensions.Consume
+namespace TinyDancer.Consume
 {
 	public class MessageHandlerBuilder
 	{
