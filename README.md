@@ -1,4 +1,4 @@
-TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/).
+TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/) with some convenient features such as handling multiple types of messages, fault tolerance etc.
 
 ## Install
 	PM> Install-Package TinyDancer
@@ -41,7 +41,7 @@ await client.PublishAsync(
 ```
 
 ### Why?
-Frameworks like Rebus and MassTransit are great, but were not written specifically with Azure Service Bus in mind, and adds a lot of features you might not need. In contrast, this tiny library relies on the Azure Service Bus client, but provides a simplified interface to a number of important concerns:
+Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any queues or topics. We think you should do that yourself. Once you have a `QueueClient` or `SubscriptionClient`, TinyDancer provides a simple yet powerful interface to a number of important concerns:
 
 - Serialization and deserialization (JSON and MessagePack are supported)
 - Prevention of partial/unacknowledged message handling
@@ -58,6 +58,7 @@ Frameworks like Rebus and MassTransit are great, but were not written specifical
 - [Sessions](#sessions)
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
 - [Preventing unacknowledged message handling](#preventing-partial-message-handling)
+- [Dependency resolution](coming soon)
 
 #### Sending messages
 - PublishMany
