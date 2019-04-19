@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TinyDancer.Consume.Session
+namespace TinyDancer.Consume
 {
 	public class DummyDisposable : IDisposable
 	{

@@ -1,28 +1,28 @@
-TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/) with some convenient features such as handling multiple types of messages, fault tolerance etc.
+TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/) with some convenient features such as handling multiple types of messages, dependency injection, decoupled fault tolerance etc.
 
 ## Install
-	PM> Install-Package TinyDancer
-	
+    PM> Install-Package TinyDancer
+    
 ### Consume different types of messages from the same queue/topic
 ```csharp
 var client = new QueueClient(...); // or SubscriptionClient
 
 client.Configure()
-	.HandleMessage<SeatsReserved>(seatsReserved => { 
-		// A user reserved one or more seats
-		SaveReservation(...);
-		LockSeats(...);
-	})
-	.HandleMessage<SeatsDiscarded>(async seatsDiscarded => { 
-		// A user has discarded a reservation
-		await RemoveReservation(...);
-		await FreeUpSeats(...);
-	})
-	.Catch<DbConnectionFailedException>(x => x.Abandon(maxTimes: 2)) // Probably network instability. Try one more time.
-	.OnUnrecognizedMessageType(x => x.Abandon()) // Let a different consumer handle this one
-	.CatchUnhandledExceptions(x => x.Deadletter(),
-		(msg, ex) => _logger.Error($"Error while processing message {msg.Id}", ex))
-	.Subscribe();
+    .HandleMessage<SeatsReserved>(seatsReserved => { 
+        // A user reserved one or more seats
+        SaveReservation(...);
+        LockSeats(...);
+    })
+    .HandleMessage<SeatsDiscarded>(async seatsDiscarded => { 
+        // A user has discarded a reservation
+        await RemoveReservation(...);
+        await FreeUpSeats(...);
+    })
+    .Catch<DbConnectionFailedException>(x => x.Abandon(maxTimes: 2)) // Probably network instability. Try one more time.
+    .OnUnrecognizedMessageType(x => x.Abandon()) // Let a different consumer handle this one
+    .CatchUnhandledExceptions(x => x.Deadletter(),
+        (msg, ex) => _logger.Error($"Error while processing message {msg.Id}", ex))
+    .Subscribe();
 ```
 
 ### Publish a message
@@ -32,12 +32,12 @@ await client.PublishAsync(myMessageObject);
 
 // ...or with all options:
 await client.PublishAsync(
-	payload: myMessageObject,
-	sessionId: "", // For queues/subscriptions with sessions enabled.
-	deduplicationIdentifier: "", // For queues/topics that support deduplication:
-	compress: true, // Serialize using MessagePack for smaller byte-size
-	correlationId: x => x.AnyString
-	);
+    payload: myMessageObject,
+    sessionId: "", // For queues/subscriptions with sessions enabled.
+    deduplicationIdentifier: "", // For queues/topics that support deduplication:
+    compress: true, // Serialize using MessagePack for smaller byte-size
+    correlationId: x => x.AnyString
+    );
 ```
 
 ### Why?
@@ -46,6 +46,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - Serialization and deserialization (JSON and MessagePack are supported)
 - Prevention of partial/unacknowledged message handling
 - Decoupling of application logic from servicebus concepts when it comes to fault tolerance (see [exception handling](#exception-handling))
+- Dependency resolution
 
 # Documentation
 
@@ -53,12 +54,12 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Consume by type](#consume-by-type)
 - [Subscribe to all](#subscribe-to-all)
 - [Exception handling](#exception-handling)
-	- Retry (abandon) / Deadletter / Complete
-	- [Callbacks](#callbacks)
+    - Retry (abandon) / Deadletter / Complete
+    - [Callbacks](#callbacks)
+- [Dependency injection](#dependency-injection)
 - [Sessions](#sessions)
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
 - [Preventing unacknowledged message handling](#preventing-partial-message-handling)
-- [Dependency resolution](coming soon)
 
 #### Sending messages
 - PublishMany
@@ -108,6 +109,46 @@ Use this to carry out any side-effects, like logging etc.
 `.CatchUnhandledExceptions(action, callback)` will catch all other types of exceptions thrown from your handler.
 
 Note that these exception handlers only will be triggered when an exception occurs in user code (or any library used below that). Exceptions thrown from the ServiceBus library will break execution, as this would indicate an unsafe state to operate in.
+
+### Dependency injection
+
+TinyDancer can be integrated with `Microsoft.Extensions.DependencyInjection`. Just pass an instance of `IServiceCollection` to the `RegisterDependencies` method, and then you can add parameters to your handler functions:
+
+```csharp
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        queueClient.Configure()
+            .RegisterDependencies(services)
+            // Inject dependencies like this:
+            .HandleMessage<Animal, IRepository<Animal>>(async (message, animalRepo) =>
+            {
+                await animalRepo.InsertAsync(message);
+            })
+            // Or like this:
+            .HandleMessage(async (Car message, IRepository<Car> carRepo, ILogger logger) =>
+            {
+                await carRepo.InsertAsync(message);
+                logger.Info($"Saved car with id {message.CarId}")
+            })
+            .Subscribe();
+    }
+}
+```
+
+The first parameter must always be the message, and all subsequent parameters will be resolved.
+
+If you need to use information from your messages as part of your service resolution, a `Message` is added to your `IServiceCollection` before the handler is called, and can be used like this:
+
+```csharp
+services.AddScoped<IRepository<Animal>>(provider =>
+{
+    // In order to resolve IRepository<Animal>, we need the Tenant key from the incoming message:
+    var userProperties = provider.GetRequiredService<Message>().UserProperties;
+    return new Repository<Animal>(userProperties["TenantKey"]);
+});
+```
 
 ### Sessions
 Sessions are the way Azure Service Bus guarantees order of delivery.

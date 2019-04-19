@@ -20,7 +20,7 @@ namespace TinyDancer.Publish
 			{
 				SessionId = sessionId,
 				CorrelationId = correlationId?.Invoke(payload),
-				UserProperties = { ["MessageType"] = payload.GetType().Name }
+				UserProperties = { ["MessageType"] = payload.GetType().FullName }
 			};
 
 			if (compress)
@@ -53,7 +53,7 @@ namespace TinyDancer.Publish
 				{
 					SessionId = sessionId,
 					CorrelationId = correlationId?.Invoke(payload),
-					UserProperties = { ["MessageType"] = payload.GetType().Name }
+					UserProperties = { ["MessageType"] = payload.GetType().FullName }
 				};
 
 				if (compress)

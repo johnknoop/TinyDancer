@@ -6,14 +6,20 @@ using System.Threading.Tasks;
 using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
-using TinyDancer.Consume.Session;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TinyDancer.Consume
 {
 	public class MessageHandlerBuilder
 	{
-		private readonly IReceiverClient _receiverClient;
-		private readonly Configuration _config;
+		enum ReceiverMode
+		{
+			Message, Session
+		}
+
+		private readonly ReceiverClientAdapter _receiverClient;
+		private readonly SessionConfiguration _sessionConfiguration;
+		private readonly Configuration _singleMessageConfiguration;
 
 		private Func<IReceiverClient, Message, Task> _unrecognizedMessageHandler = null;
 		private ExceptionHandler _deserializationErrorHandler = null;
@@ -25,10 +31,25 @@ namespace TinyDancer.Consume
 		private readonly Dictionary<string, (Type type, Func<object, Task> handler)> _messageHandlers = new Dictionary<string, (Type type, Func<object, Task> handler)>();
 		private (Type type, Func<object, Task> handler)? _globalHandler = null;
 
-		public MessageHandlerBuilder(IReceiverClient receiverClient, Configuration config)
+		private bool _anyDependenciesRegistered;
+		private IServiceCollection _services;
+
+		private readonly ReceiverMode _mode;
+
+		internal MessageHandlerBuilder(ReceiverClientAdapter receiverClient, Configuration singleMessageConfiguration)
 		{
 			_receiverClient = receiverClient;
-			_config = config;
+			_singleMessageConfiguration = singleMessageConfiguration;
+
+			_mode = ReceiverMode.Message;
+		}
+
+		internal MessageHandlerBuilder(ReceiverClientAdapter receiverClient, SessionConfiguration sessionConfiguration)
+		{
+			_receiverClient = receiverClient;
+			_sessionConfiguration = sessionConfiguration;
+
+			_mode = ReceiverMode.Session;
 		}
 
 		public MessageHandlerBuilder Catch<TException>(Func<ExceptionHandlingBuilder<TException>, ExceptionHandler<TException>> handleStrategy, ExceptionCallback<TException> callback = null) where TException : Exception
@@ -90,41 +111,87 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public MessageHandlerBuilder HandleMessage<TMessage>(AsyncMessageHandler<TMessage> action)
+		// Asynchronous overloads
+
+		public MessageHandlerBuilder HandleMessage<TMessage>(Func<TMessage, Task> action) => RegisterMessageHandler(action, typeof(TMessage));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1>(Func<TMessage, TDep1, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2>(Func<TMessage, TDep1, TDep2, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3>(Func<TMessage, TDep1, TDep2, TDep3, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+
+		// Synchronous overloads
+
+		public MessageHandlerBuilder HandleMessage<TMessage>(Action<TMessage> action) => RegisterMessageHandler(action, typeof(TMessage));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1>(Action<TMessage, TDep1> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2>(Action<TMessage, TDep1, TDep2> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3>(Action<TMessage, TDep1, TDep2, TDep3> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+
+		// Global overloads
+
+		public MessageHandlerBuilder HandleAllAs<TMessage>(Action<TMessage> handler) => RegisterGlobalHandler(handler, typeof(TMessage));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1>(Action<TMessage, TDep1> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2>(Action<TMessage, TDep1, TDep2> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3>(Action<TMessage, TDep1, TDep2, TDep3> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+
+		// Global async overloads
+
+		public MessageHandlerBuilder HandleAllAs<TMessage>(Func<TMessage, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1>(Func<TMessage, TDep1, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2>(Func<TMessage, TDep1, TDep2, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3>(Func<TMessage, TDep1, TDep2, TDep3, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+		
+		private MessageHandlerBuilder RegisterMessageHandler(Action<(Type type, Func<object, Task> handler)> registerHandler, Delegate action, Type messageType, params Type[] dependencies)
 		{
-			_messageHandlers[typeof(TMessage).Name] = (typeof(TMessage), async (message) =>
+			registerHandler((messageType, async (message) =>
 			{
-				await action((TMessage)message);
-			});
+				if (dependencies.Any())
+				{
+					using (var scope = _services.BuildServiceProvider().CreateScope())
+					{
+						var resolvedDependencies = dependencies.Select(type =>
+							scope.ServiceProvider.GetService(type) ??
+							throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved"));
+
+						var returnedObject = action.DynamicInvoke(new [] { message }.Concat(resolvedDependencies).ToArray());
+
+						await (returnedObject is Task task
+							? task
+							: Task.CompletedTask);
+					}
+				}
+				else
+				{
+					await (action.DynamicInvoke(message) is Task task
+							? task
+							: Task.CompletedTask);
+				}
+			}));
+
+			_anyDependenciesRegistered |= dependencies.Any();
 
 			return this;
 		}
 
-		public MessageHandlerBuilder HandleMessage<TMessage>(MessageHandler<TMessage> action)
+		private MessageHandlerBuilder RegisterMessageHandler(Delegate action, Type messageType, params Type[] dependencies)
 		{
-			_messageHandlers[typeof(TMessage).Name] = (typeof(TMessage), async (message) =>
-			{
-				action((TMessage) message);
-				await Task.Yield();
-			});
+			void RegisterHandler((Type type, Func<object, Task> handler) handler) => _messageHandlers[messageType.FullName] = handler;
+			RegisterMessageHandler(RegisterHandler, action, messageType, dependencies);
 
 			return this;
 		}
 
-		public MessageHandlerBuilder HandleAllAs<T>(Action<T> handler)
+		private MessageHandlerBuilder RegisterGlobalHandler(Delegate action, Type messageType, params Type[] dependencies)
 		{
-			_globalHandler = (typeof(T), async msg =>
-			{
-				handler((T) msg);
-				await Task.Yield();
-			});
+			void RegisterHandler((Type type, Func<object, Task> handler) handler) => _globalHandler = handler;
+			RegisterMessageHandler(RegisterHandler, action, messageType, dependencies);
 
-			return this;
-		}
-
-		public MessageHandlerBuilder HandleAllAs<T>(Func<T, Task> handler)
-		{
-			_globalHandler = (typeof(T), async msg => await handler((T) msg));
 			return this;
 		}
 
@@ -134,6 +201,12 @@ namespace TinyDancer.Consume
 		public void Subscribe()
 			=> DoSubscribe();
 
+		public MessageHandlerBuilder RegisterDependencies(ServiceCollection services)
+		{
+			_services = services;
+			return this;
+		}
+
 		private void DoSubscribe(CancellationToken? cancelled = null, Func<IDisposable> dontInterrupt = null)
 		{
 			if (_unrecognizedMessageHandler != null && _globalHandler != null)
@@ -141,87 +214,135 @@ namespace TinyDancer.Consume
 				throw new InvalidOperationException($"{nameof(HandleAllAs)} and {nameof(OnUnrecognizedMessageType)} cannot both be used");
 			}
 
+			if (_services == null && _anyDependenciesRegistered)
+			{
+				throw new InvalidOperationException($"Please use {nameof(RegisterDependencies)} in order to enable dependency resolution");
+			}
+
 			// todo: vakta mot typer med samma namn
 
 			var blockInterruption = dontInterrupt ?? (() => new DummyDisposable());
 
-			var messageHandlerOptions = new MessageHandlerOptions(exceptionEventArgs =>
+			if (_mode == ReceiverMode.Message)
 			{
-				_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
-				return Task.CompletedTask;
-			})
-			{
-				AutoComplete = false
-			};
+				var messageHandlerOptions = new MessageHandlerOptions(exceptionEventArgs =>
+				{
+					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
+					return Task.CompletedTask;
+				})
+				{
+					AutoComplete = false
+				};
 
-			if (_config?.MaxConcurrentMessages != null)
+				if (_singleMessageConfiguration?.MaxConcurrentMessages != null)
+				{
+					messageHandlerOptions.MaxConcurrentCalls = _singleMessageConfiguration.MaxConcurrentMessages.Value;
+				}
+
+				if (_singleMessageConfiguration?.MaxAutoRenewDuration != null)
+				{
+					messageHandlerOptions.MaxAutoRenewDuration = _singleMessageConfiguration.MaxAutoRenewDuration.Value;
+				}
+
+				_receiverClient.RegisterMessageHandler(async (message, cancel) =>
+				{
+					await HandleMessageReceived(cancelled, message, blockInterruption, _receiverClient.GetClient());
+				}, messageHandlerOptions);	
+			}
+			else
 			{
-				messageHandlerOptions.MaxConcurrentCalls = _config.MaxConcurrentMessages.Value;
+				var messageHandlerOptions = new SessionHandlerOptions(exceptionEventArgs =>
+				{
+					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
+					return Task.CompletedTask;
+				})
+				{
+					AutoComplete = false
+				};
+
+				if (_sessionConfiguration?.MaxConcurrentSessions != null)
+				{
+					messageHandlerOptions.MaxConcurrentSessions = _sessionConfiguration.MaxConcurrentSessions.Value;
+				}
+
+				if (_sessionConfiguration?.MaxAutoRenewDuration != null)
+				{
+					messageHandlerOptions.MaxAutoRenewDuration = _sessionConfiguration.MaxAutoRenewDuration.Value;
+				}
+
+				_receiverClient.RegisterSessionHandler(async (session, message, cancel) =>
+				{
+					await HandleMessageReceived(cancelled, message, blockInterruption, session);
+				}, messageHandlerOptions);
+			}
+		}
+
+		private async Task HandleMessageReceived(CancellationToken? cancelled, Message message, Func<IDisposable> blockInterruption, IReceiverClient client)
+		{
+			if (cancelled?.IsCancellationRequested == true)
+			{
+				await client.AbandonAsync(message.SystemProperties.LockToken);
+				return;
 			}
 
-			if (_config?.MaxAutoRenewDuration != null)
+			using (blockInterruption())
 			{
-				messageHandlerOptions.MaxAutoRenewDuration = _config.MaxAutoRenewDuration.Value;
+				try
+				{
+					_services?.AddScoped(provider => message);
+
+					if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
+						_messageHandlers.TryGetValue((string) messageType, out var y))
+					{
+						var deserialized = Deserialize(message, y.type);
+						await y.handler(deserialized);
+					}
+					else if (_globalHandler != null)
+					{
+						var deserialized = Deserialize(message, _globalHandler.Value.type);
+						await _globalHandler.Value.handler(deserialized);
+					}
+					else if (_unrecognizedMessageHandler != null)
+					{
+						await _unrecognizedMessageHandler(client, message);
+						return;
+					}
+
+					await client.CompleteAsync(message.SystemProperties.LockToken);
+				}
+				catch (DeserializationFailedException ex)
+				{
+					await _deserializationErrorHandler(client, message, ex.InnerException);
+				}
+				catch (Exception ex) when (_exceptionHandlers.Keys.Contains(ex.GetType()))
+				{
+					await _exceptionHandlers[ex.GetType()](client, message, ex);
+				}
+				catch (Exception ex) when (_unhandledExceptionHandler != null)
+				{
+					await _unhandledExceptionHandler(client, message, ex);
+				}
 			}
+		}
 
-			object Deserialize(Message message, Type type)
+		object Deserialize(Message message, Type type)
+		{
+			if (message.UserProperties.ContainsKey("compressed"))
 			{
-				if (message.UserProperties.ContainsKey("compressed"))
-				{
-					return MessagePackSerializer.NonGeneric.Deserialize(type, message.Body, MessagePack.Resolvers.ContractlessStandardResolver.Instance);
-				}
-				else
-				{
-					return message.Body.Deserialize(type);
-				}
+				return MessagePackSerializer.NonGeneric.Deserialize(type, message.Body, MessagePack.Resolvers.ContractlessStandardResolver.Instance);
 			}
-
-			_receiverClient.RegisterMessageHandler(async (message, cancel) =>
+			else
 			{
-				if (cancelled?.IsCancellationRequested == true)
-				{
-					await _receiverClient.AbandonAsync(message.SystemProperties.LockToken);
-					return;
-				}
+				return message.Body.Deserialize(type);
+			}
+		}
+	}
 
-				using (blockInterruption())
-				{
-					try
-					{
-						if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
-							_messageHandlers.TryGetValue((string) messageType, out var y))
-						{
-							var deserialized = Deserialize(message, y.type);
-							await y.handler(deserialized);
-						}
-						else if (_globalHandler != null)
-						{
-							var deserialized = Deserialize(message, _globalHandler.Value.type);
-							await _globalHandler.Value.handler(deserialized);
-						}
-						else if (_unrecognizedMessageHandler != null)
-						{
-							await _unrecognizedMessageHandler(_receiverClient, message);
-							return;
-						}
-
-						await _receiverClient.CompleteAsync(message.SystemProperties.LockToken);
-					}
-					catch (DeserializationFailedException ex)
-					{
-						await _deserializationErrorHandler(_receiverClient, message, ex.InnerException);
-					}
-					catch (Exception ex) when (_exceptionHandlers.Keys.Contains(ex.GetType()))
-					{
-						await _exceptionHandlers[ex.GetType()](_receiverClient, message, ex);
-					}
-					catch (Exception ex) when (_unhandledExceptionHandler != null)
-					{
-						await _unhandledExceptionHandler(_receiverClient, message, ex);
-					}
-				}
-
-			}, messageHandlerOptions);
+	public class DependencyResolutionException : Exception
+	{
+		public DependencyResolutionException(string message) : base(message)
+		{
+			
 		}
 	}
 }
