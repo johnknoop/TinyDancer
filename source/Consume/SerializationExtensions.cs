@@ -13,9 +13,14 @@ namespace TinyDancer.Consume
 			try
 			{
 				var json = Encoding.UTF8.GetString(arr);
-				var settings = new JsonSerializerSettings();
+
+				var settings = new JsonSerializerSettings
+				{
+					ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
+				};
 
 				settings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
 				return JsonConvert.DeserializeObject(json, type, settings);
 			}
 			catch (Exception ex)

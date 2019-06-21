@@ -139,6 +139,8 @@ public class Startup
 
 The first parameter must always be the message, and all subsequent parameters will be resolved.
 
+A new dependency scope is created and disposed for each message that is handled, so any dependencies registered with `AddScoped` will be resolved and disposed correctly.
+
 If you need to use information from your messages as part of your service resolution, a `Message` is added to your `IServiceCollection` before the handler is called, and can be used like this:
 
 ```csharp
@@ -168,12 +170,8 @@ There's also an overload of this method that takes a callback, if you want to do
 
 Both `OnUnrecognizedMessageType` and `OnDeserializationFailed` offer the choice to `Abandon`, `Deadletter` or `Complete` the message.
 
-### Preventing partial message handling
-It's always a good idea to make your message handling idempotent, given the at-least-once delivery nature of the Service Bus. However, Azure Service Bus supports deduplication, and some operations might be hard to carry out idempotently, like sending an e-mail. Therefore you want to avoid sending that e-mail without marking the message as complete. Otherwise, it will be consumed again.
-
-There are two overloads of the `Subscribe` method. One of them takes a `CancellationToken` and a `Func<IDisposable>` as arguments. You can use these to prevent the program from terminating in the middle of message processing. TinyDancer will check the cancellation token whenever a message is received. If cancellation has been requested, the message is returned to the queue. The `Func<Disposable>` is a way to signal back to the program that work is being done and interruption should be avoided.
-
-This integrates nicely with [this package](https://github.com/johnknoop/GracefulConsoleRunner).
+### Graceful shutdown
+Todo: beskriv integration med IApplicationLifetime och att pågående hanteringar dräneras på samma sätt som MVC.
 
 ## Sending messages
 (documentation coming)

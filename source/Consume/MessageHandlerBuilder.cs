@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Microsoft.Extensions.DependencyInjection;
+using TinyDancer.GracefulShutdown;
 
 namespace TinyDancer.Consume
 {
@@ -35,6 +37,7 @@ namespace TinyDancer.Consume
 		private IServiceCollection _services;
 
 		private readonly ReceiverMode _mode;
+		private bool _setCulture;
 
 		internal MessageHandlerBuilder(ReceiverClientAdapter receiverClient, Configuration singleMessageConfiguration)
 		{
@@ -119,6 +122,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3>(Func<TMessage, TDep1, TDep2, TDep3, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
 
 		// Synchronous overloads
 
@@ -128,15 +133,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3>(Action<TMessage, TDep1, TDep2, TDep3> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
-
-		// Global overloads
-
-		public MessageHandlerBuilder HandleAllAs<TMessage>(Action<TMessage> handler) => RegisterGlobalHandler(handler, typeof(TMessage));
-		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1>(Action<TMessage, TDep1> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1));
-		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2>(Action<TMessage, TDep1, TDep2> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2));
-		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3>(Action<TMessage, TDep1, TDep2, TDep3> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
-		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
-		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
 
 		// Global async overloads
 
@@ -146,7 +144,24 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3>(Func<TMessage, TDep1, TDep2, TDep3, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
 		
+		// Global overloads
+
+		public MessageHandlerBuilder HandleAllAs<TMessage>(Action<TMessage> handler) => RegisterGlobalHandler(handler, typeof(TMessage));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1>(Action<TMessage, TDep1> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2>(Action<TMessage, TDep1, TDep2> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3>(Action<TMessage, TDep1, TDep2, TDep3> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
+
+		public MessageHandlerBuilder ConfigureCulture()
+		{
+			_setCulture = true;
+			return this;
+		}
+
 		private MessageHandlerBuilder RegisterMessageHandler(Action<(Type type, Func<object, Task> handler)> registerHandler, Delegate action, Type messageType, params Type[] dependencies)
 		{
 			registerHandler((messageType, async (message) =>
@@ -195,13 +210,36 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public void Subscribe(CancellationToken? cancelled, Func<IDisposable> dontInterrupt)
+		public void Subscribe() => DoSubscribe();
+
+		[Obsolete("This overload is deprecated in favor of SubscribeUntilShutdownAsync")]
+		public void Subscribe(CancellationToken? cancelled = null, Func<IDisposable> dontInterrupt = null)
 			=> DoSubscribe(cancelled, dontInterrupt);
 
-		public void Subscribe()
-			=> DoSubscribe();
+		/// <summary>
+		/// Start subscribing and allow outstanding message handlers to finish before completing.
+		/// No new messages will be handled once shutdown has begun.
+		/// </summary>
+		/// <param name="applicationStopping">A cancellation token that is cancelled when shutdown begins</param>
+		/// <returns>A task that is completed when all outstanding message handlers are finished</returns>
+		public Task SubscribeUntilShutdownAsync(CancellationToken applicationStopping)
+		{
+			var runContext = new GracefulConsoleRunContext(applicationStopping);
+			var applicationShutdown = new TaskCompletionSource<object>();
 
-		public MessageHandlerBuilder RegisterDependencies(ServiceCollection services)
+			applicationStopping.Register(() =>
+			{
+				runContext.TerminationRequested();
+				Task.WaitAll(runContext.WhenWorkCompleted(null));
+				applicationShutdown.TrySetResult(null);
+			}, false);
+
+			DoSubscribe(runContext.ApplicationTermination, runContext.BlockInterruption);
+
+			return applicationShutdown.Task;
+		}
+
+		public MessageHandlerBuilder RegisterDependencies(IServiceCollection services)
 		{
 			_services = services;
 			return this;
@@ -219,8 +257,6 @@ namespace TinyDancer.Consume
 				throw new InvalidOperationException($"Please use {nameof(RegisterDependencies)} in order to enable dependency resolution");
 			}
 
-			// todo: vakta mot typer med samma namn
-
 			var blockInterruption = dontInterrupt ?? (() => new DummyDisposable());
 
 			if (_mode == ReceiverMode.Message)
@@ -231,7 +267,7 @@ namespace TinyDancer.Consume
 					return Task.CompletedTask;
 				})
 				{
-					AutoComplete = false
+					AutoComplete = false,
 				};
 
 				if (_singleMessageConfiguration?.MaxConcurrentMessages != null)
@@ -285,10 +321,14 @@ namespace TinyDancer.Consume
 				return;
 			}
 
+			cancelled?.Register(() => { client.CloseAsync(); });
+
 			using (blockInterruption())
 			{
 				try
 				{
+					CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string) message.UserProperties["Culture"]);
+					
 					_services?.AddScoped(provider => message);
 
 					if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
@@ -321,6 +361,10 @@ namespace TinyDancer.Consume
 				catch (Exception ex) when (_unhandledExceptionHandler != null)
 				{
 					await _unhandledExceptionHandler(client, message, ex);
+				}
+				finally
+				{
+					CultureInfo.CurrentCulture = CultureInfo.DefaultThreadCurrentCulture;
 				}
 			}
 		}

@@ -8,14 +8,14 @@
 		<PackageTags>azure servicebus service bus message queue</PackageTags>
 		<PackageProjectUrl>https://github.com/johnknoop/TinyDancer</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/johnknoop/TinyDancer</RepositoryUrl>
-		<Version>2.0.0-beta</Version>
+		<Version>2.0.0-rc.5</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="MessagePack" Version="1.7.3.4" />
 		<PackageReference Include="NodaTime" Version="2.2.1" />
 		<PackageReference Include="NodaTime.Serialization.JsonNet" Version="2.0.0" />
-		<PackageReference Include="Microsoft.Azure.ServiceBus" Version="2.0.0" />
+		<PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.4.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
 	</ItemGroup>
@@ -23,6 +23,9 @@
 	<ItemGroup>
 	  <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
 	    <HintPath>..\..\..\Users\john\.nuget\packages\microsoft.extensions.dependencyinjection.abstractions\2.2.0\lib\netstandard2.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Microsoft.Extensions.Hosting.Abstractions">
+	    <HintPath>..\..\..\Users\john\.nuget\packages\microsoft.extensions.hosting.abstractions\2.2.0\lib\netstandard2.0\Microsoft.Extensions.Hosting.Abstractions.dll</HintPath>
 	  </Reference>
 	</ItemGroup>
 
