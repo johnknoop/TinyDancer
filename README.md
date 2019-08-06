@@ -59,7 +59,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Dependency injection](#dependency-injection)
 - [Sessions](#sessions)
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
-- [Preventing unacknowledged message handling](#preventing-partial-message-handling)
+- [Graceful shutdown](#graceful-shutdown)
 
 #### Sending messages
 - PublishMany
@@ -171,7 +171,30 @@ There's also an overload of this method that takes a callback, if you want to do
 Both `OnUnrecognizedMessageType` and `OnDeserializationFailed` offer the choice to `Abandon`, `Deadletter` or `Complete` the message.
 
 ### Graceful shutdown
-Todo: beskriv integration med IApplicationLifetime och att pågående hanteringar dräneras på samma sätt som MVC.
+If you want your message handling to be drained and terminated gracefully, just like HTTP requests in an ASP.NET application, then use the `SubscribeUntilShutdownAsync` method, which takes a `CancellationToken` representing application shutdown.
+
+The simplest way is to write your code as a [hosted service](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-2.2&tabs=visual-studio), extending the [BackgroundService](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.hosting.backgroundservice?view=aspnetcore-2.2) class:
+
+```csharp
+public class MyMessageHandler : BackgroundService
+{
+    private readonly ISenderClient _serviceBusClient;
+
+    public MyMessageHandler(ISenderClient serviceBusClient)
+    {
+        _serviceBusClient = serviceBusClient;
+    }
+
+    public override Task ExecuteAsync(CancellationToken applicationStopping)
+    {
+        return _serviceBusClient
+            .Configure()
+            // Set up your message handling etc
+            .SubscribeUntilShutdownAsync(applicationStopping);
+    }
+}
+```
+This way, TinyDancer will be notified when application shutdown is initiated. It will then allow in-flight messages to be handled completely, but will not accept any new ones.
 
 ## Sending messages
 (documentation coming)
