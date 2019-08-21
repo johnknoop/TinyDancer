@@ -11,7 +11,11 @@ namespace TinyDancer.Publish
 {
 	public static class SenderClientExtensions
 	{
-		public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, bool compress = false, string correlationId = null, IDictionary<string, object> userProperties = null)
+        public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, string correlationId = null, IDictionary<string, object> userProperties = null)
+            => await PublishAsync(client, payload, sessionId, deduplicationIdentifier, correlationId: correlationId, userProperties: userProperties);
+
+        [Obsolete("The 'compress' parameter is deprecated and will be removed in an upcoming version. Use something like https://github.com/SeanFeldman/ServiceBus.CompressionPlugin instead.")]
+        public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, bool compress = false, string correlationId = null, IDictionary<string, object> userProperties = null)
 		{
 			var serialized = compress
 				? MessagePackSerializer.Serialize(payload, MessagePack.Resolvers.ContractlessStandardResolver.Instance)
