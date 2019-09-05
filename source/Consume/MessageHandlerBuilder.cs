@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -350,7 +350,7 @@ namespace TinyDancer.Consume
 
 					await client.CompleteAsync(message.SystemProperties.LockToken);
 				}
-				catch (DeserializationFailedException ex)
+				catch (DeserializationFailedException ex) when (_deserializationErrorHandler != null)
 				{
 					await _deserializationErrorHandler(client, message, ex.InnerException);
 				}
