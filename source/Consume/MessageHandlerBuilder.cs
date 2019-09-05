@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -25,6 +25,7 @@ namespace TinyDancer.Consume
 
 		private Func<IReceiverClient, Message, Task> _unrecognizedMessageHandler = null;
 		private ExceptionHandler _deserializationErrorHandler = null;
+		private ExceptionHandler _dependencyResolutionErrorHandler = null;
 		private Action<ExceptionReceivedEventArgs> _receiverActionCallback = null;
 
 		private readonly Dictionary<Type, ExceptionHandler> _exceptionHandlers = new Dictionary<Type, ExceptionHandler>();
@@ -113,6 +114,19 @@ namespace TinyDancer.Consume
 
 			return this;
 		}
+
+        public MessageHandlerBuilder OnDependencyResolutionException(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception> callback = null)
+        {
+            var handler = handleStrategy(new ExceptionHandlingBuilder<Exception>());
+
+            _dependencyResolutionErrorHandler = async (client, message, ex) =>
+            {
+                await handler(client, message, ex);
+                callback?.Invoke(message, ex);
+            };
+
+            return this;
+        }
 
 		// Asynchronous overloads
 
@@ -354,6 +368,10 @@ namespace TinyDancer.Consume
 				{
 					await _deserializationErrorHandler(client, message, ex.InnerException);
 				}
+				catch (DependencyResolutionException ex) when (_dependencyResolutionErrorHandler != null)
+                {
+                    await _dependencyResolutionErrorHandler(client, message, ex.InnerException);
+                }
 				catch (Exception ex) when (_exceptionHandlers.Keys.Contains(ex.GetType()))
 				{
 					await _exceptionHandlers[ex.GetType()](client, message, ex);
