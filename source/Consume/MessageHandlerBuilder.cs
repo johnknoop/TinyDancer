@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +25,7 @@ namespace TinyDancer.Consume
 		private Func<IReceiverClient, Message, Task> _unrecognizedMessageHandler = null;
 		private ExceptionHandler _deserializationErrorHandler = null;
 		private ExceptionHandler _dependencyResolutionErrorHandler = null;
-		private Action<ExceptionReceivedEventArgs> _receiverActionCallback = null;
+		private Action<ExceptionReceivedEventArgs> _receiverExceptionCallback = null;
 
 		private readonly Dictionary<Type, ExceptionHandler> _exceptionHandlers = new Dictionary<Type, ExceptionHandler>();
 		private ExceptionHandler _unhandledExceptionHandler = null;
@@ -110,7 +109,7 @@ namespace TinyDancer.Consume
 
 		public MessageHandlerBuilder OnReceiverException(Action<ExceptionReceivedEventArgs> callback)
 		{
-			_receiverActionCallback = callback;
+			_receiverExceptionCallback = callback;
 
 			return this;
 		}
@@ -274,15 +273,17 @@ namespace TinyDancer.Consume
 			var blockInterruption = dontInterrupt ?? (() => new DummyDisposable());
 
 			if (_mode == ReceiverMode.Message)
-			{
-				var messageHandlerOptions = new MessageHandlerOptions(exceptionEventArgs =>
-				{
-					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
-					return Task.CompletedTask;
-				})
-				{
-					AutoComplete = false,
-				};
+            {
+                var messageHandlerOptions = new MessageHandlerOptions(
+                    exceptionReceivedHandler: exceptionEventArgs =>
+                    {
+                        _receiverExceptionCallback
+                            ?.Invoke(exceptionEventArgs); // todo: implementera async version också
+                        return Task.CompletedTask;
+                    })
+                {
+                    AutoComplete = false,
+                };
 
 				if (_singleMessageConfiguration?.MaxConcurrentMessages != null)
 				{
@@ -300,15 +301,17 @@ namespace TinyDancer.Consume
 				}, messageHandlerOptions);	
 			}
 			else
-			{
-				var messageHandlerOptions = new SessionHandlerOptions(exceptionEventArgs =>
-				{
-					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
-					return Task.CompletedTask;
-				})
-				{
-					AutoComplete = false
-				};
+            {
+                var messageHandlerOptions = new SessionHandlerOptions(
+                    exceptionReceivedHandler: exceptionEventArgs =>
+                    {
+                        _receiverExceptionCallback
+                            ?.Invoke(exceptionEventArgs); // todo: implementera async version också
+                        return Task.CompletedTask;
+                    })
+                {
+                    AutoComplete = false
+                };
 
 				if (_sessionConfiguration?.MaxConcurrentSessions != null)
 				{
@@ -341,7 +344,10 @@ namespace TinyDancer.Consume
 			{
 				try
 				{
-					CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string) message.UserProperties["Culture"]);
+                    if (message.UserProperties.ContainsKey("Culture"))
+                    {
+                        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string)message.UserProperties["Culture"]); 
+                    }
 					
 					_services?.AddScoped(provider => message);
 
@@ -389,14 +395,7 @@ namespace TinyDancer.Consume
 
 		object Deserialize(Message message, Type type)
 		{
-			if (message.UserProperties.ContainsKey("compressed"))
-			{
-				return MessagePackSerializer.NonGeneric.Deserialize(type, message.Body, MessagePack.Resolvers.ContractlessStandardResolver.Instance);
-			}
-			else
-			{
-				return message.Body.Deserialize(type);
-			}
+            return message.Body.Deserialize(type);
 		}
 	}
 

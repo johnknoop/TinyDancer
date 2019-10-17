@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 
@@ -12,14 +11,8 @@ namespace TinyDancer.Publish
 	public static class SenderClientExtensions
 	{
         public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, string correlationId = null, IDictionary<string, object> userProperties = null)
-            => await PublishAsync(client, payload, sessionId, deduplicationIdentifier, correlationId: correlationId, userProperties: userProperties);
-
-        [Obsolete("The 'compress' parameter is deprecated and will be removed in an upcoming version. Use something like https://github.com/SeanFeldman/ServiceBus.CompressionPlugin instead.")]
-        public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, bool compress = false, string correlationId = null, IDictionary<string, object> userProperties = null)
 		{
-			var serialized = compress
-				? MessagePackSerializer.Serialize(payload, MessagePack.Resolvers.ContractlessStandardResolver.Instance)
-				: payload.Serialized();
+			var serialized = payload.Serialized();
 
 			var message = new Message(serialized)
 			{
@@ -38,11 +31,6 @@ namespace TinyDancer.Publish
 				{
 					message.UserProperties[userPropertiesKey] = userProperties[userPropertiesKey];
 				}
-			}
-
-			if (compress)
-			{
-				message.UserProperties["compressed"] = true;
 			}
 
 			if (deduplicationIdentifier != null)
@@ -70,9 +58,7 @@ namespace TinyDancer.Publish
 
 			var messages = payloads.Select(payload =>
 			{
-				var serialized = compress
-					? MessagePackSerializer.Serialize(payload, MessagePack.Resolvers.ContractlessStandardResolver.Instance)
-					: payload.Serialized();
+				var serialized = payload.Serialized();
 
 				var message = new Message(serialized)
 				{
