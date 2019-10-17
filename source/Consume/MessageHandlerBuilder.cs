@@ -1,10 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MessagePack;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +24,8 @@ namespace TinyDancer.Consume
 
 		private Func<IReceiverClient, Message, Task> _unrecognizedMessageHandler = null;
 		private ExceptionHandler _deserializationErrorHandler = null;
-		private Action<ExceptionReceivedEventArgs> _receiverActionCallback = null;
+		private ExceptionHandler _dependencyResolutionErrorHandler = null;
+		private Action<ExceptionReceivedEventArgs> _receiverExceptionCallback = null;
 
 		private readonly Dictionary<Type, ExceptionHandler> _exceptionHandlers = new Dictionary<Type, ExceptionHandler>();
 		private ExceptionHandler _unhandledExceptionHandler = null;
@@ -109,10 +109,23 @@ namespace TinyDancer.Consume
 
 		public MessageHandlerBuilder OnReceiverException(Action<ExceptionReceivedEventArgs> callback)
 		{
-			_receiverActionCallback = callback;
+			_receiverExceptionCallback = callback;
 
 			return this;
 		}
+
+        public MessageHandlerBuilder OnDependencyResolutionException(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception> callback = null)
+        {
+            var handler = handleStrategy(new ExceptionHandlingBuilder<Exception>());
+
+            _dependencyResolutionErrorHandler = async (client, message, ex) =>
+            {
+                await handler(client, message, ex);
+                callback?.Invoke(message, ex);
+            };
+
+            return this;
+        }
 
 		// Asynchronous overloads
 
@@ -260,15 +273,17 @@ namespace TinyDancer.Consume
 			var blockInterruption = dontInterrupt ?? (() => new DummyDisposable());
 
 			if (_mode == ReceiverMode.Message)
-			{
-				var messageHandlerOptions = new MessageHandlerOptions(exceptionEventArgs =>
-				{
-					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
-					return Task.CompletedTask;
-				})
-				{
-					AutoComplete = false,
-				};
+            {
+                var messageHandlerOptions = new MessageHandlerOptions(
+                    exceptionReceivedHandler: exceptionEventArgs =>
+                    {
+                        _receiverExceptionCallback
+                            ?.Invoke(exceptionEventArgs); // todo: implementera async version också
+                        return Task.CompletedTask;
+                    })
+                {
+                    AutoComplete = false,
+                };
 
 				if (_singleMessageConfiguration?.MaxConcurrentMessages != null)
 				{
@@ -286,15 +301,17 @@ namespace TinyDancer.Consume
 				}, messageHandlerOptions);	
 			}
 			else
-			{
-				var messageHandlerOptions = new SessionHandlerOptions(exceptionEventArgs =>
-				{
-					_receiverActionCallback?.Invoke(exceptionEventArgs); // todo: implementera async version också
-					return Task.CompletedTask;
-				})
-				{
-					AutoComplete = false
-				};
+            {
+                var messageHandlerOptions = new SessionHandlerOptions(
+                    exceptionReceivedHandler: exceptionEventArgs =>
+                    {
+                        _receiverExceptionCallback
+                            ?.Invoke(exceptionEventArgs); // todo: implementera async version också
+                        return Task.CompletedTask;
+                    })
+                {
+                    AutoComplete = false
+                };
 
 				if (_sessionConfiguration?.MaxConcurrentSessions != null)
 				{
@@ -327,7 +344,10 @@ namespace TinyDancer.Consume
 			{
 				try
 				{
-					CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string) message.UserProperties["Culture"]);
+                    if (message.UserProperties.ContainsKey("Culture"))
+                    {
+                        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string)message.UserProperties["Culture"]); 
+                    }
 					
 					_services?.AddScoped(provider => message);
 
@@ -354,6 +374,10 @@ namespace TinyDancer.Consume
 				{
 					await _deserializationErrorHandler(client, message, ex.InnerException);
 				}
+				catch (DependencyResolutionException ex) when (_dependencyResolutionErrorHandler != null)
+                {
+                    await _dependencyResolutionErrorHandler(client, message, ex.InnerException);
+                }
 				catch (Exception ex) when (_exceptionHandlers.Keys.Contains(ex.GetType()))
 				{
 					await _exceptionHandlers[ex.GetType()](client, message, ex);
@@ -371,14 +395,7 @@ namespace TinyDancer.Consume
 
 		object Deserialize(Message message, Type type)
 		{
-			if (message.UserProperties.ContainsKey("compressed"))
-			{
-				return MessagePackSerializer.NonGeneric.Deserialize(type, message.Body, MessagePack.Resolvers.ContractlessStandardResolver.Instance);
-			}
-			else
-			{
-				return message.Body.Deserialize(type);
-			}
+            return message.Body.Deserialize(type);
 		}
 	}
 
