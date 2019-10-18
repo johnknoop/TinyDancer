@@ -143,6 +143,8 @@ A new dependency scope is created and disposed for each message that is handled,
 
 If you need to use information from your messages as part of your service resolution, a `Message` is added to your `IServiceCollection` before the handler is called, and can be used like this:
 
+Any errors occuring during dependency resolution, for example if a required service isn't registered, can be caught using `OnDependencyResolutionException`.
+
 ```csharp
 services.AddScoped<IRepository<Animal>>(provider =>
 {
