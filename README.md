@@ -60,6 +60,8 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Sessions](#sessions)
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
 - [Graceful shutdown](#graceful-shutdown)
+- [Preventing unacknowledged message handling](#preventing-partial-message-handling)
+- [Receive message in same culture as when sent](#culture)
 
 #### Sending messages
 - PublishMany

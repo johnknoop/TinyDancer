@@ -46,10 +46,9 @@ namespace TinyDancer.Publish
 		/// </summary>
 		/// <typeparam name="TMessage"></typeparam>
 		/// <param name="deduplicationIdentifier">Sets the MessageId property of each message, to allow for deduplication</param>
-		/// <param name="compress">If true, will compress payload using MessagePack</param>
 		/// <param name="correlationId">Sets the CorrelationId property of each message</param>
 		/// <returns></returns>
-		public static async Task PublishAllAsync<TMessage>(this ISenderClient client, IList<TMessage> payloads, string sessionId = null, Func<TMessage, string> deduplicationIdentifier = null, bool compress = false, Func<TMessage, string> correlationId = null, IDictionary<string, object> userProperties = null)
+		public static async Task PublishAllAsync<TMessage>(this ISenderClient client, IList<TMessage> payloads, string sessionId = null, Func<TMessage, string> deduplicationIdentifier = null, Func<TMessage, string> correlationId = null, IDictionary<string, object> userProperties = null)
 		{
 			if (payloads.Count == 0)
 			{
@@ -73,11 +72,6 @@ namespace TinyDancer.Publish
 					{
 						message.UserProperties[userPropertiesKey] = userProperties[userPropertiesKey];
 					}
-				}
-
-				if (compress)
-				{
-					message.UserProperties["compressed"] = true;
 				}
 
 				if (deduplicationIdentifier != null)

@@ -344,7 +344,7 @@ namespace TinyDancer.Consume
 			{
 				try
 				{
-                    if (message.UserProperties.ContainsKey("Culture"))
+                    if (_setCulture && message.UserProperties.ContainsKey("Culture"))
                     {
                         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string)message.UserProperties["Culture"]); 
                     }
@@ -388,7 +388,10 @@ namespace TinyDancer.Consume
 				}
 				finally
 				{
-					CultureInfo.CurrentCulture = CultureInfo.DefaultThreadCurrentCulture;
+					if (_setCulture)
+					{
+						CultureInfo.CurrentCulture = CultureInfo.DefaultThreadCurrentCulture;
+					}
 				}
 			}
 		}
