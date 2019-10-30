@@ -95,18 +95,23 @@ Any exception that your handler cannot recover from gracefully can be allowed to
 
 You have three options for what to do with the message, when `MyException` occurs:
 
-- **Abandon**(_maxTimes = null_)
-  -- Will return the message to the queue/subscription so that it may be retried again. If it has already been retried _maxTimes_ number of times, it will be deadlettered.
-- **Deadletter**(_reason = null_)
-  -- Will move the message to the deadletter queue. Useful for poison messages, where you know it can not be handled by any running consumer.
-- **Complete**()
-  -- Acknowledges the message.
+- **Abandon**(_maxTimes = null_)\
+  Will return the message to the queue/subscription so that it may be retried again. If it has already been retried _maxTimes_ number of times, it will be deadlettered.
+- **Deadletter**(_reason = null_)\
+  Will move the message to the deadletter queue. Useful for poison messages, where you know it can not be handled by any running consumer.
+- **Complete**()\
+  Acknowledges the message.
 
 #### Callbacks
 
 Use this to carry out any side-effects, like logging etc.
 
-#### Unexpected exceptions
+#### Example:
+  ```csharp
+    .Catch<MyException>(x => x.Abandon(), msg => _logger.Error(...))
+  ```
+
+#### Unhandled exceptions
 
 `.CatchUnhandledExceptions(action, callback)` will catch all other types of exceptions thrown from your handler.
 
@@ -145,8 +150,6 @@ A new dependency scope is created and disposed for each message that is handled,
 
 If you need to use information from your messages as part of your service resolution, a `Message` is added to your `IServiceCollection` before the handler is called, and can be used like this:
 
-Any errors occuring during dependency resolution, for example if a required service isn't registered, can be caught using `OnDependencyResolutionException`.
-
 ```csharp
 services.AddScoped<IRepository<Animal>>(provider =>
 {
@@ -155,6 +158,8 @@ services.AddScoped<IRepository<Animal>>(provider =>
     return new Repository<Animal>(userProperties["TenantKey"]);
 });
 ```
+
+Any errors occuring during dependency resolution, for example if a required service isn't registered, can be caught using `OnDependencyResolutionException`.
 
 ### Sessions
 Sessions are the way Azure Service Bus guarantees order of delivery.
