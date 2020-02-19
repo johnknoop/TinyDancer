@@ -332,6 +332,25 @@ namespace TinyDancer.Consume
 
 		private async Task HandleMessageReceived(CancellationToken? cancelled, Message message, Func<IDisposable> blockInterruption, IReceiverClient client)
 		{
+			(bool cultureOverridden, CultureInfo defaultCulture, CultureInfo defaultUiCulture) TryOverrideCulture()
+			{
+				var cultureOverridden = false;
+				var defaultCulture = CultureInfo.CurrentCulture;
+				var defaultUiCulture = CultureInfo.CurrentUICulture;
+
+				if (_setCulture && message.UserProperties.ContainsKey("Culture") && message.UserProperties["Culture"] != null)
+				{
+					var culture = CultureInfo.GetCultureInfo((string) message.UserProperties["Culture"]);
+
+					CultureInfo.CurrentCulture = culture;
+					CultureInfo.CurrentUICulture = culture;
+
+					cultureOverridden = true;
+				}
+
+				return (cultureOverridden, defaultCulture, defaultUiCulture);
+			}
+
 			if (cancelled?.IsCancellationRequested == true)
 			{
 				await client.AbandonAsync(message.SystemProperties.LockToken);
@@ -342,13 +361,10 @@ namespace TinyDancer.Consume
 
 			using (blockInterruption())
 			{
+				var (cultureOverridden, defaultCulture, defaultUiCulture) = TryOverrideCulture();
+
 				try
 				{
-                    if (_setCulture && message.UserProperties.ContainsKey("Culture"))
-                    {
-                        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo((string)message.UserProperties["Culture"]); 
-                    }
-					
 					_services?.AddScoped(provider => message);
 
 					if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
@@ -388,9 +404,10 @@ namespace TinyDancer.Consume
 				}
 				finally
 				{
-					if (_setCulture)
+					if (cultureOverridden)
 					{
-						CultureInfo.CurrentCulture = CultureInfo.DefaultThreadCurrentCulture;
+						CultureInfo.CurrentCulture = defaultCulture;
+						CultureInfo.CurrentUICulture = defaultUiCulture;
 					}
 				}
 			}
