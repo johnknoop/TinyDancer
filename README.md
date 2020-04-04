@@ -63,7 +63,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Preventing unacknowledged message handling](#preventing-partial-message-handling)
 - [Receive message in same culture as when sent](#culture)
 
-#### Sending messages
+#### [Sending messages](#sending-messages-1)
 - PublishMany
 - Deduplication
 - Compression
@@ -187,9 +187,9 @@ The simplest way is to write your code as a [hosted service](https://docs.micros
 ```csharp
 public class MyMessageHandler : BackgroundService
 {
-    private readonly ISenderClient _serviceBusClient;
+    private readonly IReceiverClient _serviceBusClient;
 
-    public MyMessageHandler(ISenderClient serviceBusClient)
+    public MyMessageHandler(IReceiverClient serviceBusClient)
     {
         _serviceBusClient = serviceBusClient;
     }
@@ -206,4 +206,53 @@ public class MyMessageHandler : BackgroundService
 This way, TinyDancer will be notified when application shutdown is initiated. It will then allow in-flight messages to be handled completely, but will not accept any new ones.
 
 ## Sending messages
-(documentation coming)
+
+TinyDancer provides a couple of extension methods to `ISenderClient` (`IQueueClient` and `ITopicClient` both implement this interface).
+
+### Publish a single message
+
+#### Signature:
+```csharp
+Task PublishAsync<TMessage>(
+      this ISenderClient client,
+      TMessage payload,
+      string sessionId = null,
+      string deduplicationIdentifier = null,
+      string correlationId = null,
+      IDictionary<string, object> userProperties = null)
+```
+
+#### Example:
+
+```csharp
+await client.PublishAsync(
+    payload: myMessage,
+    sessionId: sessionId, // Optional
+    deduplicationIdentifier: deduplicationIdentifier, // Optional
+    correlationId: correlationId, // Optional
+    userProperties: userProps); // Optional
+```
+
+### Publish multiple messages
+
+#### Signature:
+```csharp
+Task PublishAllAsync<TMessage>(
+      this ISenderClient client,
+      IList<TMessage> payloads,
+      string sessionId = null,
+      Func<TMessage, string> deduplicationIdentifier = null,
+      Func<TMessage, string> correlationId = null,
+      IDictionary<string, object> userProperties = null)
+```
+
+#### Example:
+
+```csharp
+await client.PublishAllAsync(
+    payloads: messages,
+    sessionId: sessionId, // Optional
+    deduplicationIdentifier: deduplicationIdentifier,  // Optional
+    correlationId:  correlationId, // Optional
+    userProperties: userProps); // Optional
+```
