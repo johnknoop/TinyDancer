@@ -51,7 +51,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 # Documentation
 
 #### Receiving messages
-- [Consume by type](#consume-by-type)
+- [Consume by type](#multiplexing)
 - [Subscribe to all](#subscribe-to-all)
 - [Exception handling](#exception-handling)
     - Retry (abandon) / Deadletter / Complete
@@ -71,7 +71,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 
 ## Receiving Messages
 
-### Consume by type
+### Multiplexing
 
 When you publish a message using TinyDancer, the message type is added to the metadata of the message. Thus, on the receiving end, handling messages of different types is as easy as:
 
