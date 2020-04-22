@@ -11,6 +11,11 @@ using TinyDancer.GracefulShutdown;
 
 namespace TinyDancer.Consume
 {
+	internal class MessageHolder
+	{
+		public Message Message { get; set; }
+	}
+
 	public class MessageHandlerBuilder
 	{
 		enum ReceiverMode
@@ -30,11 +35,11 @@ namespace TinyDancer.Consume
 		private readonly Dictionary<Type, ExceptionHandler> _exceptionHandlers = new Dictionary<Type, ExceptionHandler>();
 		private ExceptionHandler _unhandledExceptionHandler = null;
 
-		private readonly Dictionary<string, (Type type, Func<object, Task> handler)> _messageHandlers = new Dictionary<string, (Type type, Func<object, Task> handler)>();
-		private (Type type, Func<object, Task> handler)? _globalHandler = null;
+		private readonly Dictionary<string, (Type type, Func<object, IServiceScope, Task> handler)> _messageHandlers = new Dictionary<string, (Type type, Func<object, IServiceScope, Task> handler)>();
+		private (Type type, Func<object, IServiceScope, Task> handler)? _globalHandler = null;
 
 		private bool _anyDependenciesRegistered;
-		private IServiceCollection _services;
+		private IServiceProvider _services;
 
 		private readonly ReceiverMode _mode;
 		private bool _setCulture;
@@ -175,24 +180,21 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		private MessageHandlerBuilder RegisterMessageHandler(Action<(Type type, Func<object, Task> handler)> registerHandler, Delegate action, Type messageType, params Type[] dependencies)
+		private MessageHandlerBuilder RegisterMessageHandler(Action<(Type type, Func<object, IServiceScope, Task> handler)> registerHandler, Delegate action, Type messageType, params Type[] dependencies)
 		{
-			registerHandler((messageType, async (message) =>
+			registerHandler((messageType, async (message, scope) =>
 			{
 				if (dependencies.Any())
 				{
-					using (var scope = _services.BuildServiceProvider().CreateScope())
-					{
-						var resolvedDependencies = dependencies.Select(type =>
-							scope.ServiceProvider.GetService(type) ??
-							throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved"));
+					var resolvedDependencies = dependencies.Select(type =>
+						scope.ServiceProvider.GetService(type) ??
+						throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved"));
 
-						var returnedObject = action.DynamicInvoke(new [] { message }.Concat(resolvedDependencies).ToArray());
+					var returnedObject = action.DynamicInvoke(new [] { message }.Concat(resolvedDependencies).ToArray());
 
-						await (returnedObject is Task task
-							? task
-							: Task.CompletedTask);
-					}
+					await (returnedObject is Task task
+						? task
+						: Task.CompletedTask);
 				}
 				else
 				{
@@ -209,7 +211,7 @@ namespace TinyDancer.Consume
 
 		private MessageHandlerBuilder RegisterMessageHandler(Delegate action, Type messageType, params Type[] dependencies)
 		{
-			void RegisterHandler((Type type, Func<object, Task> handler) handler) => _messageHandlers[messageType.FullName] = handler;
+			void RegisterHandler((Type type, Func<object, IServiceScope, Task> handler) handler) => _messageHandlers[messageType.FullName] = handler;
 			RegisterMessageHandler(RegisterHandler, action, messageType, dependencies);
 
 			return this;
@@ -217,7 +219,7 @@ namespace TinyDancer.Consume
 
 		private MessageHandlerBuilder RegisterGlobalHandler(Delegate action, Type messageType, params Type[] dependencies)
 		{
-			void RegisterHandler((Type type, Func<object, Task> handler) handler) => _globalHandler = handler;
+			void RegisterHandler((Type type, Func<object, IServiceScope, Task> handler) handler) => _globalHandler = handler;
 			RegisterMessageHandler(RegisterHandler, action, messageType, dependencies);
 
 			return this;
@@ -254,7 +256,11 @@ namespace TinyDancer.Consume
 
 		public MessageHandlerBuilder RegisterDependencies(IServiceCollection services)
 		{
-			_services = services;
+			services.AddScoped<Message>(x => x.GetRequiredService<MessageHolder>().Message);
+			services.AddScoped<MessageHolder>();
+			
+			_services = services.BuildServiceProvider();
+
 			return this;
 		}
 
@@ -365,23 +371,29 @@ namespace TinyDancer.Consume
 
 				try
 				{
-					_services?.AddScoped(provider => message);
+					using (var scope = _services?.CreateScope())
+					{
+						if (scope != null)
+						{
+							scope.ServiceProvider.GetRequiredService<MessageHolder>().Message = message;
+						}
 
-					if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
-						_messageHandlers.TryGetValue((string) messageType, out var y))
-					{
-						var deserialized = Deserialize(message, y.type);
-						await y.handler(deserialized);
-					}
-					else if (_globalHandler != null)
-					{
-						var deserialized = Deserialize(message, _globalHandler.Value.type);
-						await _globalHandler.Value.handler(deserialized);
-					}
-					else if (_unrecognizedMessageHandler != null)
-					{
-						await _unrecognizedMessageHandler(client, message);
-						return;
+						if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
+							_messageHandlers.TryGetValue((string) messageType, out var y))
+						{
+							var deserialized = Deserialize(message, y.type);
+							await y.handler(deserialized, scope);
+						}
+						else if (_globalHandler != null)
+						{
+							var deserialized = Deserialize(message, _globalHandler.Value.type);
+							await _globalHandler.Value.handler(deserialized, scope);
+						}
+						else if (_unrecognizedMessageHandler != null)
+						{
+							await _unrecognizedMessageHandler(client, message);
+							return;
+						}	
 					}
 
 					await client.CompleteAsync(message.SystemProperties.LockToken);
