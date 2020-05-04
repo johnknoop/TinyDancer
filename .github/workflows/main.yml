@@ -21,5 +21,17 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: Git Release
-      uses: anton-yurchenko/git-release@v3.1.2
+    - name: Release
+      uses: docker://antonyurchenko/git-release:latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GithubToken }}
+        DRAFT_RELEASE: "false"
+        PRE_RELEASE: "false"
+        CHANGELOG_FILE: "CHANGELOG.md"
+        ALLOW_EMPTY_CHANGELOG: "false"
+        ALLOW_TAG_PREFIX: "true"
+      with:
+        args: |
+            build/darwin-amd64.zip
+            build/linux-amd64.zip
+            build/windows-amd64.zip
