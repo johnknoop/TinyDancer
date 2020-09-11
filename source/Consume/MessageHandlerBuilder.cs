@@ -11,7 +11,7 @@ using TinyDancer.GracefulShutdown;
 
 namespace TinyDancer.Consume
 {
-	internal class MessageHolder
+	public class MessageHolder
 	{
 		public Message Message { get; set; }
 	}
@@ -142,6 +142,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9, Task> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8), typeof(TDep9));
 
 		// Synchronous overloads
 
@@ -153,6 +155,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6));
 		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8));
+		public MessageHandlerBuilder HandleMessage<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9> action) => RegisterMessageHandler(action, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8), typeof(TDep9));
 
 		// Global async overloads
 
@@ -163,6 +167,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9>(Func<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9, Task> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8), typeof(TDep9));
 		
 		// Global overloads
 
@@ -173,6 +179,8 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4>(Action<TMessage, TDep1, TDep2, TDep3, TDep4> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8));
+		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8), typeof(TDep9));
 
 		public MessageHandlerBuilder ConfigureCulture()
 		{
