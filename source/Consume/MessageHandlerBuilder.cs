@@ -50,6 +50,11 @@ namespace TinyDancer.Consume
 			_singleMessageConfiguration = singleMessageConfiguration;
 
 			_mode = ReceiverMode.Message;
+
+			// Just so that we can add and resolve the MessageReleaser.
+			// If the user overwrites this using RegisterDependencies then that's fine
+			// because we're adding it to that service collection as well.
+			_services = new ServiceCollection().AddScoped<MessageReleaser>().BuildServiceProvider();
 		}
 
 		internal MessageHandlerBuilder(ReceiverClientAdapter receiverClient, SessionConfiguration sessionConfiguration)
@@ -58,6 +63,11 @@ namespace TinyDancer.Consume
 			_sessionConfiguration = sessionConfiguration;
 
 			_mode = ReceiverMode.Session;
+
+			// Just so that we can add and resolve the MessageReleaser.
+			// If the user overwrites this using RegisterDependencies then that's fine
+			// because we're adding it to that service collection as well.
+			_services = new ServiceCollection().AddScoped<MessageReleaser>().BuildServiceProvider();
 		}
 
 		public MessageHandlerBuilder Catch<TException>(Func<ExceptionHandlingBuilder<TException>, ExceptionHandler<TException>> handleStrategy, ExceptionCallback<TException> callback = null) where TException : Exception
@@ -182,7 +192,14 @@ namespace TinyDancer.Consume
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8));
 		public MessageHandlerBuilder HandleAllAs<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9>(Action<TMessage, TDep1, TDep2, TDep3, TDep4, TDep5, TDep6, TDep7, TDep8, TDep9> handler) => RegisterGlobalHandler(handler, typeof(TMessage), typeof(TDep1), typeof(TDep2), typeof(TDep3), typeof(TDep4), typeof(TDep5), typeof(TDep6), typeof(TDep7), typeof(TDep8), typeof(TDep9));
 
+		[Obsolete("Use " + nameof(ConsumeMessagesInSameCultureAsSentIn) + " instead")]
 		public MessageHandlerBuilder ConfigureCulture()
+		{
+			_setCulture = true;
+			return this;
+		}
+
+		public MessageHandlerBuilder ConsumeMessagesInSameCultureAsSentIn()
 		{
 			_setCulture = true;
 			return this;
@@ -196,7 +213,8 @@ namespace TinyDancer.Consume
 				{
 					var resolvedDependencies = dependencies.Select(type =>
 						scope.ServiceProvider.GetService(type) ??
-						throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved"));
+								throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved")
+						);
 
 					var returnedObject = action.DynamicInvoke(new [] { message }.Concat(resolvedDependencies).ToArray());
 
@@ -212,7 +230,7 @@ namespace TinyDancer.Consume
 				}
 			}));
 
-			_anyDependenciesRegistered |= dependencies.Any();
+			_anyDependenciesRegistered |= dependencies.Where(x => x != typeof(MessageReleaser)).Any();
 
 			return this;
 		}
@@ -266,7 +284,8 @@ namespace TinyDancer.Consume
 		{
 			services.AddScoped<Message>(x => x.GetRequiredService<MessageHolder>().Message);
 			services.AddScoped<MessageHolder>();
-			
+			services.AddScoped<MessageReleaser>();
+
 			_services = services.BuildServiceProvider();
 
 			return this;
@@ -381,9 +400,33 @@ namespace TinyDancer.Consume
 				{
 					using (var scope = _services?.CreateScope())
 					{
+						var messageReleased = false;
+
 						if (scope != null)
 						{
-							scope.ServiceProvider.GetRequiredService<MessageHolder>().Message = message;
+							if (scope.ServiceProvider.TryGetService<MessageHolder>(out var messageHolder))
+							{
+								messageHolder.Message = message;
+							}
+
+							var messageReleaser = scope.ServiceProvider.GetRequiredService<MessageReleaser>();
+
+							messageReleaser
+								.OnAbandon(async () =>
+								{
+									await client.AbandonAsync(message.SystemProperties.LockToken);
+									messageReleased = true;
+								})
+								.OnComplete(async () =>
+								{
+									await client.CompleteAsync(message.SystemProperties.LockToken);
+									messageReleased = true;
+								})
+								.OnDeadletter(async () =>
+								{
+									await client.DeadLetterAsync(message.SystemProperties.LockToken);
+									messageReleased = true;
+								});
 						}
 
 						if (message.UserProperties.TryGetValue("MessageType", out var messageType) &&
@@ -401,10 +444,13 @@ namespace TinyDancer.Consume
 						{
 							await _unrecognizedMessageHandler(client, message);
 							return;
-						}	
-					}
+						}
 
-					await client.CompleteAsync(message.SystemProperties.LockToken);
+						if (!messageReleased)
+						{
+							await client.CompleteAsync(message.SystemProperties.LockToken);
+						}
+					}
 				}
 				catch (DeserializationFailedException ex) when (_deserializationErrorHandler != null)
 				{

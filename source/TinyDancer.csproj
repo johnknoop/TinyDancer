@@ -1,15 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFramework>netstandard2.1</TargetFramework>
 		<Authors>John Knoop</Authors>
 		<Company />
 		<Description>TinyDancer is a high-level abstraction layer on top of the Azure Service Bus client.</Description>
 		<PackageTags>azure servicebus service bus message queue</PackageTags>
 		<PackageProjectUrl>https://github.com/johnknoop/TinyDancer</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/johnknoop/TinyDancer</RepositoryUrl>
-		<Version>2.1.0</Version>
-		<PackageReleaseNotes>More generic overloads for dependencies</PackageReleaseNotes>
+		<Version>3.0.0</Version>
+		<PackageReleaseNotes>New feature:
+ - Release message prematurely (as in before the message handling has completed)
+
+Breaking changes:
+ - Upgraded to .NET Standard 2.1.
+ - Renamed method ConfigureCulture -&gt; ConsumeMessagesInSameCultureAsSentIn</PackageReleaseNotes>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

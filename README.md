@@ -61,7 +61,8 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
 - [Graceful shutdown](#graceful-shutdown)
 - [Preventing unacknowledged message handling](#preventing-partial-message-handling)
-- [Receive message in same culture as when sent](#culture)
+- [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
+- [Release message prematurely](#release-message-prematurely)
 
 #### [Sending messages](#sending-messages-1)
 - PublishMany
@@ -204,6 +205,27 @@ public class MyMessageHandler : BackgroundService
 }
 ```
 This way, TinyDancer will be notified when application shutdown is initiated. It will then allow in-flight messages to be handled completely, but will not accept any new ones.
+
+### Receive message in same culture as when sent
+
+TinyDancer can set the thread culture of the thread that handles a message to the same culture as that of the thread that published the message, impacting things like number and date formatting. This is useful in when sending message between services in a multi-tenant system where the tenants may have different cultural preferences. 
+
+Use `.ConsumeMessagesInSameCultureAsSentIn()` to enable this feature.
+
+### Release message prematurely
+
+If your message handling results in a really time-consuming operation, and you want to release the message (meaning complete, abandon or deadletter it) before the operation has completed, you can use the `MessageReleaser` helper. Just declare it as a dependency in your handler and call it whenever you feel like it:
+
+```cs
+messageReceiver.Configure()
+    //...
+	.HandleMessage<MyMessage, MessageReleaser>(async (msg, releaser) =>
+	{
+		await releaser.CompleteAsync();
+
+		// Do more work...
+	})
+```
 
 ## Sending messages
 
