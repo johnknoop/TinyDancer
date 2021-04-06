@@ -62,7 +62,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Graceful shutdown](#graceful-shutdown)
 - [Preventing unacknowledged message handling](#preventing-partial-message-handling)
 - [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
-- [Release message prematurely](#release-message-prematurely)
+- [Release message early](#release-message-early)
 
 #### [Sending messages](#sending-messages-1)
 - PublishMany
@@ -212,7 +212,7 @@ TinyDancer can set the thread culture of the thread that handles a message to th
 
 Use `.ConsumeMessagesInSameCultureAsSentIn()` to enable this feature.
 
-### Release message prematurely
+### Release message early
 
 If your message handling results in a really time-consuming operation, and you want to release the message (meaning complete, abandon or deadletter it) before the operation has completed, you can use the `MessageReleaser` helper. Just declare it as a dependency in your handler and call it whenever you feel like it:
 
@@ -226,6 +226,8 @@ messageReceiver.Configure()
 		// Do more work...
 	})
 ```
+
+Please note that releasing a message early does not mean the next message in the queue will get consumed right away. The `MaxConcurrentSessions`/`MaxConcurrentMessages` settings limit the number of messages in process concurrently, and a message is still considered in process until the handler completes, regardless of whether or not you release it early.
 
 ## Sending messages
 
