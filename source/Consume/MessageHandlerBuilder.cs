@@ -390,7 +390,7 @@ namespace TinyDancer.Consume
 				return;
 			}
 
-			cancelled?.Register(() => { client.CloseAsync(); });
+			cancelled?.Register(async () => { await client.CloseAsync(); });
 
 			using (blockInterruption())
 			{

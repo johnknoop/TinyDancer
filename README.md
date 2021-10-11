@@ -60,7 +60,6 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 - [Sessions](#sessions)
 - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
 - [Graceful shutdown](#graceful-shutdown)
-- [Preventing unacknowledged message handling](#preventing-partial-message-handling)
 - [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
 - [Release message early](#release-message-early)
 
@@ -130,15 +129,14 @@ public class Startup
         queueClient.Configure()
             .RegisterDependencies(services)
             // Inject dependencies like this:
-            .HandleMessage<Animal, IRepository<Animal>>(async (message, animalRepo) =>
+            .HandleMessage<CarPurchased, IRepository<Car>>(async (message, carRepo) =>
             {
-                await animalRepo.InsertAsync(message);
+                await carRepo.InsertAsync(new Car(message.LicensePlateNumber));
             })
             // Or like this:
-            .HandleMessage(async (Car message, IRepository<Car> carRepo, ILogger logger) =>
+            .HandleMessage(async (CarPurchased message, IRepository<Car> carRepo, ILogger logger) =>
             {
-                await carRepo.InsertAsync(message);
-                logger.Info($"Saved car with id {message.CarId}")
+                await carRepo.InsertAsync(new Car(message.LicensePlateNumber));
             })
             .Subscribe();
     }
@@ -181,7 +179,7 @@ There's also an overload of this method that takes a callback, if you want to do
 Both `OnUnrecognizedMessageType` and `OnDeserializationFailed` offer the choice to `Abandon`, `Deadletter` or `Complete` the message.
 
 ### Graceful shutdown
-If you want your message handling to be drained and terminated gracefully, just like HTTP requests in an ASP.NET application, then use the `SubscribeUntilShutdownAsync` method, which takes a `CancellationToken` representing application shutdown.
+If you want your message handling to be drained and terminated gracefully, just like HTTP requests in an ASP.NET application, then use the `SubscribeUntilShutdownAsync` method, which accepts a `CancellationToken` representing application shutdown.
 
 The simplest way is to write your code as a [hosted service](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-2.2&tabs=visual-studio), extending the [BackgroundService](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.hosting.backgroundservice?view=aspnetcore-2.2) class:
 
@@ -206,7 +204,7 @@ public class MyMessageHandler : BackgroundService
 ```
 This way, TinyDancer will be notified when application shutdown is initiated. It will then allow in-flight messages to be handled completely, but will not accept any new ones.
 
-### Receive message in same culture as when sent
+### Receive message in same culture as sent in
 
 TinyDancer can set the thread culture of the thread that handles a message to the same culture as that of the thread that published the message, impacting things like number and date formatting. This is useful in when sending message between services in a multi-tenant system where the tenants may have different cultural preferences. 
 
