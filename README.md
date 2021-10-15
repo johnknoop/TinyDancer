@@ -41,7 +41,7 @@ await client.PublishAsync(
 ```
 
 ### Why?
-Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any queues or topics. We think you should do that yourself. Once you have a `QueueClient` or `SubscriptionClient`, TinyDancer provides a simple yet powerful interface to a number of important concerns:
+Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any queues or topics. You need to provision those yourself using ARM templates or Azure CLI like any other cloud resources, alternatively using [ServiceBusExplorer](https://github.com/paolosalvatori/ServiceBusExplorer). Once you have a `QueueClient` or `SubscriptionClient`, TinyDancer provides a simple yet powerful interface to a number of important concerns:
 
 - Serialization and deserialization (JSON and MessagePack are supported)
 - Prevention of partial/unacknowledged message handling
