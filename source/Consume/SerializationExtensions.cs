@@ -1,27 +1,23 @@
-﻿using System;
+using System;
+using System.IO;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Threading.Tasks;
 using NodaTime;
-using NodaTime.Serialization.JsonNet;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace TinyDancer.Consume
 {
 	public static class SerializationExtensions
 	{
-		public static object Deserialize(this byte[] arr, Type type)
+		public static async Task<object?> DeserializeAsync(this BinaryData data, Type type)
 		{
 			try
 			{
-				var json = Encoding.UTF8.GetString(arr);
-
-				var settings = new JsonSerializerSettings
-				{
-					ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
-				};
-
+				var settings = new JsonSerializerOptions();
 				settings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
-				return JsonConvert.DeserializeObject(json, type, settings);
+				return await JsonSerializer.DeserializeAsync(data.ToStream(), type, settings);
 			}
 			catch (Exception ex)
 			{

@@ -1,8 +1,7 @@
-﻿using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
+using System.Threading.Tasks;
+using Azure.Messaging.ServiceBus;
 
 namespace TinyDancer.Consume
 {
-	public delegate Task UnrecognizedMessageHandler(IReceiverClient client, Message message);
+	public delegate Task UnrecognizedMessageHandler(ServiceBusReceivedMessage message);
 }

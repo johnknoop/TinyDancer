@@ -1,6 +1,6 @@
-﻿using Microsoft.Azure.ServiceBus;
+using Azure.Messaging.ServiceBus;
 
 namespace TinyDancer.Consume
 {
-	public delegate void ExceptionCallback<in TException>(Message message, TException exception);
+	public delegate void ExceptionCallback<in TException>(ServiceBusReceivedMessage message, TException exception);
 }

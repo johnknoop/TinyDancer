@@ -1,17 +1,30 @@
-﻿using System;
-using Microsoft.Azure.ServiceBus;
+using System;
+using Azure.Messaging.ServiceBus;
+using System.Threading.Tasks;
 
 namespace TinyDancer.Consume
 {
 	public class UnrecognizedMessageHandlingBuilder
 	{
-		public UnrecognizedMessageHandler Deadletter(Func<Message, string> reason)
+		private readonly DeadLetterMessageAsync _deadletterDelegate;
+		private readonly Func<ServiceBusReceivedMessage, Task> _completeMessageAsync;
+		private readonly Func<ServiceBusReceivedMessage, Task> _abandonMessageAsync;
+
+		internal UnrecognizedMessageHandlingBuilder(DeadLetterMessageAsync deadletterDelegate, Func<ServiceBusReceivedMessage, Task> completeMessageAsync, Func<ServiceBusReceivedMessage, Task> abandonMessageAsync)
 		{
-			return async (client, message) =>
+			_deadletterDelegate = deadletterDelegate;
+			_completeMessageAsync = completeMessageAsync;
+			_abandonMessageAsync = abandonMessageAsync;
+		}
+
+		public UnrecognizedMessageHandler Deadletter(Func<ServiceBusReceivedMessage, string> reason)
+		{
+			return async (message) =>
 			{
-				await client.DeadLetterAsync(message.SystemProperties.LockToken, reason(message));
+				await _deadletterDelegate(message, reason(message));
 			};
 		}
+
 
 		/// <summary>
 		/// 
@@ -20,24 +33,24 @@ namespace TinyDancer.Consume
 		/// <returns></returns>
 		public UnrecognizedMessageHandler Abandon(int maxTimes = 0)
 		{
-			return async (client, message) =>
+			return async (message) =>
 			{
-				if (message.SystemProperties.DeliveryCount <= maxTimes)
+				if (message.DeliveryCount <= maxTimes)
 				{
-					await client.AbandonAsync(message.SystemProperties.LockToken);
+					await _abandonMessageAsync(message);
 				}
 				else
 				{
-					await client.DeadLetterAsync(message.SystemProperties.LockToken);
+					await _deadletterDelegate(message, "Maximum number of retries reached");
 				}
 			};
 		}
 
 		public UnrecognizedMessageHandler Complete()
 		{
-			return async (client, message) =>
+			return async (message) =>
 			{
-				await client.CompleteAsync(message.SystemProperties.LockToken);
+				await _completeMessageAsync(message);
 			};
 		}
 	}

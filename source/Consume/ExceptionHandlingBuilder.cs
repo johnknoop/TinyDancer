@@ -1,9 +1,22 @@
-﻿using System;
+using Azure.Messaging.ServiceBus;
+using System;
+using System.Threading.Tasks;
 
 namespace TinyDancer.Consume
 {
 	public class ExceptionHandlingBuilder<TException> where TException : Exception
 	{
+		private readonly DeadLetterMessageAsync _deadletterDelegate;
+		private readonly Func<ServiceBusReceivedMessage, Task> _completeMessageAsync;
+		private readonly Func<ServiceBusReceivedMessage, Task> _abandonMessageAsync;
+
+		internal ExceptionHandlingBuilder(DeadLetterMessageAsync deadletterDelegate, Func<ServiceBusReceivedMessage, Task> completeMessageAsync, Func<ServiceBusReceivedMessage, Task> abandonMessageAsync)
+		{
+			_deadletterDelegate = deadletterDelegate;
+			_completeMessageAsync = completeMessageAsync;
+			_abandonMessageAsync = abandonMessageAsync;
+		}
+
 		public ExceptionHandler<TException> Deadletter()
 		{
 			return Deadletter(null);
@@ -11,38 +24,38 @@ namespace TinyDancer.Consume
 
 		public ExceptionHandler<TException> Deadletter(DeadletterReasonProvider<TException> reason)
 		{
-			return async (client, message, exception) =>
+			return async (message, exception) =>
 			{
-				await client.DeadLetterAsync(message.SystemProperties.LockToken, reason?.Invoke(message, exception) ?? string.Empty);
+				await _deadletterDelegate(message, reason?.Invoke(message, exception) ?? string.Empty);
 			};
 		}
 
 		/// <summary>
 		/// Note that <c>maxTimes</c> is enforced at best effort. The DeliveryCount property of the message will be examined,
-		/// but if there is another consumer of this queue or subscription that does not implement ..............
+		/// but there might be another consumer of this queue or subscription that does not honor this behavior.
 		/// </summary>
 		/// <param name="maxTimes">If defined, the message will only be abandoned <c>maxTimes</c> times, and then deadlettered</param>
 		/// <returns></returns>
 		public ExceptionHandler<TException> Abandon(int maxTimes = 0)
 		{
-			return async (client, message, exception) =>
+			return async (message, exception) =>
 			{
-				if (message.SystemProperties.DeliveryCount <= maxTimes)
+				if (message.DeliveryCount <= maxTimes)
 				{
-					await client.AbandonAsync(message.SystemProperties.LockToken);
+					await _abandonMessageAsync(message);
 				}
 				else
 				{
-					await client.DeadLetterAsync(message.SystemProperties.LockToken);
+					await _deadletterDelegate(message, "Maximum number of retries reached");
 				}
 			};
 		}
 
 		public ExceptionHandler<TException> Complete()
 		{
-			return async (client, message, exception) =>
+			return async (message, exception) =>
 			{
-				await client.CompleteAsync(message.SystemProperties.LockToken);
+				await _completeMessageAsync(message);
 			};
 		}
 	}

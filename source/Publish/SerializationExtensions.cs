@@ -1,7 +1,7 @@
-﻿using System.Text;
-using Newtonsoft.Json;
 using NodaTime;
-using NodaTime.Serialization.JsonNet;
+using NodaTime.Serialization.SystemTextJson;
+using System.Text;
+using System.Text.Json;
 
 namespace TinyDancer.Publish
 {
@@ -9,11 +9,11 @@ namespace TinyDancer.Publish
 	{
 		public static byte[] Serialized<T>(this T message)
 		{
-			var settings = new JsonSerializerSettings();
+			var settings = new JsonSerializerOptions();
 
 			settings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 			
-			var json = JsonConvert.SerializeObject(message, settings);
+			var json = JsonSerializer.Serialize<T>(message, settings);
 			return Encoding.UTF8.GetBytes(json);
 		}
 	}

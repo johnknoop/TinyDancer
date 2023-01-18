@@ -1,24 +1,23 @@
-﻿using System;
+using Azure.Messaging.ServiceBus;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
 
 namespace TinyDancer.Publish
 {
 	public static class SenderClientExtensions
 	{
-        public static async Task PublishAsync<TMessage>(this ISenderClient client, TMessage payload, string sessionId = null, string deduplicationIdentifier = null, string correlationId = null, IDictionary<string, object> userProperties = null)
+        public static async Task PublishAsync<TMessage>(this ServiceBusSender sender, TMessage payload, string? sessionId = null, string? deduplicationIdentifier = null, string? correlationId = null, IDictionary<string, object>? userProperties = null)
 		{
 			var serialized = payload.Serialized();
 
-			var message = new Message(serialized)
+			var message = new ServiceBusMessage(serialized)
 			{
 				SessionId = sessionId,
 				CorrelationId = correlationId,
-				UserProperties =
+				ApplicationProperties =
 				{
 					["MessageType"] = payload.GetType().FullName,
 					["Culture"] = CultureInfo.CurrentCulture.Name
@@ -29,7 +28,7 @@ namespace TinyDancer.Publish
 			{
 				foreach (var userPropertiesKey in userProperties.Keys)
 				{
-					message.UserProperties[userPropertiesKey] = userProperties[userPropertiesKey];
+					message.ApplicationProperties[userPropertiesKey] = userProperties[userPropertiesKey];
 				}
 			}
 
@@ -38,7 +37,7 @@ namespace TinyDancer.Publish
 				message.MessageId = deduplicationIdentifier;
 			}
 
-			await client.SendAsync(message);
+			await sender.SendMessageAsync(message);
 		}
 
 		/// <summary>
@@ -48,7 +47,7 @@ namespace TinyDancer.Publish
 		/// <param name="deduplicationIdentifier">Sets the MessageId property of each message, to allow for deduplication</param>
 		/// <param name="correlationId">Sets the CorrelationId property of each message</param>
 		/// <returns></returns>
-		public static async Task PublishAllAsync<TMessage>(this ISenderClient client, IList<TMessage> payloads, string sessionId = null, Func<TMessage, string> deduplicationIdentifier = null, Func<TMessage, string> correlationId = null, IDictionary<string, object> userProperties = null)
+		public static async Task PublishAllAsync<TMessage>(this ServiceBusSender sender, IList<TMessage> payloads, string? sessionId = null, Func<TMessage, string>? deduplicationIdentifier = null, Func<TMessage, string>? correlationId = null, IDictionary<string, object>? userProperties = null)
 		{
 			if (payloads.Count == 0)
 			{
@@ -59,18 +58,18 @@ namespace TinyDancer.Publish
 			{
 				var serialized = payload.Serialized();
 
-				var message = new Message(serialized)
+				var message = new ServiceBusMessage(serialized)
 				{
 					SessionId = sessionId,
 					CorrelationId = correlationId?.Invoke(payload),
-					UserProperties = { ["MessageType"] = payload.GetType().FullName }
+					ApplicationProperties = { ["MessageType"] = payload.GetType().FullName }
 				};
 
 				if (userProperties != null)
 				{
 					foreach (var userPropertiesKey in userProperties.Keys)
 					{
-						message.UserProperties[userPropertiesKey] = userProperties[userPropertiesKey];
+						message.ApplicationProperties[userPropertiesKey] = userProperties[userPropertiesKey];
 					}
 				}
 
@@ -82,7 +81,7 @@ namespace TinyDancer.Publish
 				return message;
 			}).ToList();
 
-			await client.SendAsync(messages);
+			await sender.SendMessagesAsync(messages);
 		}
 	}
 }

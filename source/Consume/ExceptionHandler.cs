@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
+using Azure.Messaging.ServiceBus;
 
 namespace TinyDancer.Consume
 {
-	public delegate Task ExceptionHandler(IReceiverClient client, Message message, Exception exception);
+	public delegate Task ExceptionHandler(ServiceBusReceivedMessage message, Exception exception);
 }
