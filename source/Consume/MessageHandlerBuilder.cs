@@ -514,9 +514,9 @@ namespace TinyDancer.Consume
 			}
 		}
 
-		object Deserialize(ServiceBusReceivedMessage message, Type type)
+		object? Deserialize(ServiceBusReceivedMessage message, Type type)
 		{
-			return message.Body.DeserializeAsync(type);
+			return message.Body.Deserialize(type);
 		}
 	}
 

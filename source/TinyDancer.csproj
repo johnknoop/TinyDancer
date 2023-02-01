@@ -8,7 +8,7 @@
 		<PackageTags>azure servicebus service bus message queue</PackageTags>
 		<PackageProjectUrl>https://github.com/johnknoop/TinyDancer</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/johnknoop/TinyDancer</RepositoryUrl>
-		<Version>4.0.0-preview1</Version>
+		<Version>4.0.0-preview2</Version>
 		<PackageReleaseNotes>New feature:
  - Release message prematurely (as in before the message handling has completed)
 
