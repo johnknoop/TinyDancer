@@ -48,7 +48,6 @@ namespace TinyDancer.Consume
 		private (Type type, Func<object, IServiceScope?, Task> handler)? _globalHandler = null;
 
 		private bool _anyDependenciesRegistered;
-		private IServiceProvider _services;
 
 		private readonly ReceiverMode _mode;
 
@@ -63,22 +62,12 @@ namespace TinyDancer.Consume
 		internal MessageHandlerBuilder(ServiceBusProcessor processor)
 		{
 			_mode = ReceiverMode.Message;
-
-			// Just so that we can add and resolve the MessageSettler.
-			// If the user overwrites this using RegisterDependencies then that's fine
-			// because we're adding it to that service collection as well.
-			_services = new ServiceCollection().AddScoped<MessageSettler>().BuildServiceProvider();
 			_messageProcessor = processor;
 		}
 
 		internal MessageHandlerBuilder(ServiceBusSessionProcessor sessionProcessor)
 		{
 			_mode = ReceiverMode.Session;
-
-			// Just so that we can add and resolve the MessageSettler.
-			// If the user overwrites this using RegisterDependencies then that's fine
-			// because we're adding it to that service collection as well.
-			_services = new ServiceCollection().AddScoped<MessageSettler>().BuildServiceProvider();
 			_sessionProcessor = sessionProcessor;
 		}
 
@@ -226,10 +215,15 @@ namespace TinyDancer.Consume
 		{
 			registerHandler((messageType, async (message, scope) =>
 			{
+				if (dependencies.Any() && scope == null)
+				{
+					throw new InvalidOperationException("In order to use dependencies in your message handler, please call services.AddTinyDancer() when configuring your services.");
+				}
+
 				if (dependencies.Any())
 				{
 					var resolvedDependencies = dependencies.Select(type =>
-						scope.ServiceProvider.GetService(type) ??
+						scope!.ServiceProvider.GetService(type) ??
 								throw new DependencyResolutionException($"Service of type {type.FullName} could not be resolved")
 						);
 
@@ -248,7 +242,7 @@ namespace TinyDancer.Consume
 			}
 			));
 
-			_anyDependenciesRegistered |= dependencies.Where(x => x != typeof(MessageSettler)).Any();
+			_anyDependenciesRegistered |= ServiceProviderAccessor.ServiceProvider != null;
 
 			return this;
 		}
@@ -299,27 +293,11 @@ namespace TinyDancer.Consume
 		public Task SubscribeAsync() =>
 			DoSubscribe(false, TimeSpan.Zero, CancellationToken.None);
 
-		public MessageHandlerBuilder RegisterDependencies(IServiceCollection services)
-		{
-			services.AddScoped<ServiceBusReceivedMessage>(x => x.GetRequiredService<MessageHolder>().Message);
-			services.AddScoped<MessageHolder>();
-			services.AddScoped<MessageSettler>();
-
-			_services = services.BuildServiceProvider();
-
-			return this;
-		}
-
 		private async Task DoSubscribe(bool blockInterruption, TimeSpan blockInterruptionTimeout, CancellationToken cancel)
 		{
 			if (_unrecognizedMessageHandler != null && _globalHandler != null)
 			{
 				throw new InvalidOperationException($"{nameof(HandleAllAs)} and {nameof(OnUnrecognizedMessageType)} cannot both be used");
-			}
-
-			if (_services == null && _anyDependenciesRegistered)
-			{
-				throw new InvalidOperationException($"Please use {nameof(RegisterDependencies)} in order to enable dependency resolution");
 			}
 
 			_blockInterruption = blockInterruption;
@@ -430,7 +408,7 @@ namespace TinyDancer.Consume
 
 			try
 			{
-				using (var scope = _services?.CreateScope())
+				using (var scope = ServiceProviderAccessor.ServiceProvider.Value?.CreateScope())
 				{
 					var messageSettled = false;
 
