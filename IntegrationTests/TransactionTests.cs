@@ -9,7 +9,7 @@ using Xunit;
 
 namespace IntegrationTests
 {
-	public class TransactionTests
+	public class TransactionTests : IClassFixture<LaunchSettingsFixture>
 	{
 		async Task WithTransactionAsync(Func<Task> transactionBody, bool failInPreparePhase, bool failInCommitPhase)
 		{
@@ -49,8 +49,8 @@ namespace IntegrationTests
 		[Fact]
 		public async Task WhenMessageSentInTransaction_TransactionBodyFails_ShouldOnlyBeSentWhenTransactionSuccesfullyCommitted()
 		{
-			var client = new ServiceBusClient("Endpoint=sb://merkenda.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=1fnXhoLA4dS4cwQAa64KW3fnqdO9Cd5FjjCZpVyw4H4=");
-			var managementClient = new ServiceBusAdministrationClient("Endpoint=sb://merkenda.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=1fnXhoLA4dS4cwQAa64KW3fnqdO9Cd5FjjCZpVyw4H4=");
+			var client = new ServiceBusClient(Environment.GetEnvironmentVariable("ServiceBusConnectionString"));
+			var managementClient = new ServiceBusAdministrationClient(Environment.GetEnvironmentVariable("ServiceBusConnectionString"));
 
 			var queueStateBefore = await managementClient.GetQueueRuntimePropertiesAsync("inputqueue");
 
@@ -73,8 +73,8 @@ namespace IntegrationTests
 		[Fact]
 		public async Task WhenMessageSentInTransaction_TransactionCommitmentFails_ShouldOnlyBeSentWhenTransactionSuccesfullyCommitted()
 		{
-			var client = new ServiceBusClient("Endpoint=sb://merkenda.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=1fnXhoLA4dS4cwQAa64KW3fnqdO9Cd5FjjCZpVyw4H4=");
-			var managementClient = new ServiceBusAdministrationClient("Endpoint=sb://merkenda.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=1fnXhoLA4dS4cwQAa64KW3fnqdO9Cd5FjjCZpVyw4H4=");
+			var client = new ServiceBusClient(Environment.GetEnvironmentVariable("ServiceBusConnectionString"));
+			var managementClient = new ServiceBusAdministrationClient(Environment.GetEnvironmentVariable("ServiceBusConnectionString"));
 
 			var queueStateBefore = await managementClient.GetQueueRuntimePropertiesAsync("inputqueue");
 

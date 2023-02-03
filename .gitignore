@@ -6,3 +6,5 @@ LocalDev/
 
 IntegrationTests/bin
 IntegrationTests/obj
+
+IntegrationTests/Properties/launchSettings.json
