@@ -8,19 +8,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.DependencyInjection;
-using TinyDancer.GracefulShutdown;
+using TinyDancer.DependencyResolution;
 
 namespace TinyDancer.Consume
 {
 	public class MessageHolder
 	{
-		public ServiceBusReceivedMessage Message { get; set; }
+		public ServiceBusReceivedMessage? Message { get; set; }
 	}
 
 	internal delegate Task DeadLetterMessageAsync(
 		ServiceBusReceivedMessage message,
 		string deadLetterReason,
-		string deadLetterErrorDescription = default,
+		string? deadLetterErrorDescription = default,
 		CancellationToken cancellationToken = default
 	);
 
@@ -36,13 +36,13 @@ namespace TinyDancer.Consume
 		private readonly ServiceBusProcessor? _messageProcessor;
 		private readonly ServiceBusSessionProcessor? _sessionProcessor;
 
-		private Func<ProcessMessageEventArgs?, ProcessSessionMessageEventArgs?, Task> _unrecognizedMessageHandler = null;
-		private InternalExceptionHandler _deserializationErrorHandler = null;
-		private InternalExceptionHandler _dependencyResolutionErrorHandler = null;
-		private Action<ProcessErrorEventArgs> _receiverExceptionCallback = null;
+		private Func<ProcessMessageEventArgs?, ProcessSessionMessageEventArgs?, Task>? _unrecognizedMessageHandler = null;
+		private InternalExceptionHandler? _deserializationErrorHandler = null;
+		private InternalExceptionHandler? _dependencyResolutionErrorHandler = null;
+		private Action<ProcessErrorEventArgs>? _receiverExceptionCallback = null;
 
 		private readonly Dictionary<Type, InternalExceptionHandler> _exceptionHandlers = new();
-		private InternalExceptionHandler _unhandledExceptionHandler = null;
+		private InternalExceptionHandler? _unhandledExceptionHandler = null;
 
 		private readonly Dictionary<string, (Type type, Func<object, IServiceScope?, Task> handler)> _messageHandlers = new();
 		private (Type type, Func<object, IServiceScope?, Task> handler)? _globalHandler = null;
@@ -71,7 +71,7 @@ namespace TinyDancer.Consume
 			_sessionProcessor = sessionProcessor;
 		}
 
-		public MessageHandlerBuilder Catch<TException>(Func<ExceptionHandlingBuilder<TException>, ExceptionHandler<TException>> handleStrategy, ExceptionCallback<TException> callback = null) where TException : Exception
+		public MessageHandlerBuilder Catch<TException>(Func<ExceptionHandlingBuilder<TException>, ExceptionHandler<TException>> handleStrategy, ExceptionCallback<TException>? callback = null) where TException : Exception
 		{
 			_exceptionHandlers[typeof(TException)] = async (message, sessionMessage, ex) =>
 			{
@@ -90,7 +90,7 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public MessageHandlerBuilder CatchUnhandledExceptions(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception> callback = null)
+		public MessageHandlerBuilder CatchUnhandledExceptions(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception>? callback = null)
 		{
 			_unhandledExceptionHandler = async (message, sessionMessage, ex) =>
 			{
@@ -109,7 +109,7 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public MessageHandlerBuilder OnDeserializationFailed(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception> callback = null)
+		public MessageHandlerBuilder OnDeserializationFailed(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception>? callback = null)
 		{
 			_deserializationErrorHandler = async (message, sessionMessage, ex) =>
 			{
@@ -128,7 +128,7 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public MessageHandlerBuilder OnUnrecognizedMessageType(Func<UnrecognizedMessageHandlingBuilder, UnrecognizedMessageHandler> handleStrategy, Action<ServiceBusReceivedMessage> callback = null)
+		public MessageHandlerBuilder OnUnrecognizedMessageType(Func<UnrecognizedMessageHandlingBuilder, UnrecognizedMessageHandler> handleStrategy, Action<ServiceBusReceivedMessage>? callback = null)
 		{
 			_unrecognizedMessageHandler = async (message, sessionMessage) =>
 			{
@@ -154,7 +154,7 @@ namespace TinyDancer.Consume
 			return this;
 		}
 
-		public MessageHandlerBuilder OnDependencyResolutionException(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception> callback = null)
+		public MessageHandlerBuilder OnDependencyResolutionException(Func<ExceptionHandlingBuilder<Exception>, ExceptionHandler<Exception>> handleStrategy, ExceptionCallback<Exception>? callback = null)
 		{			_dependencyResolutionErrorHandler = async (message, sessionMessage, ex) =>
 			{
 				var handler = handleStrategy(new ExceptionHandlingBuilder<Exception>(
@@ -249,7 +249,7 @@ namespace TinyDancer.Consume
 
 		private MessageHandlerBuilder RegisterMessageHandler(Delegate action, Type messageType, params Type[] dependencies)
 		{
-			void RegisterHandler((Type type, Func<object, IServiceScope?, Task> handler) handler) => _messageHandlers[messageType.FullName] = handler;
+			void RegisterHandler((Type type, Func<object, IServiceScope?, Task> handler) handler) => _messageHandlers[messageType.FullName ?? throw new InvalidOperationException("Cannot use type without a fullname")] = handler;
 			RegisterMessageHandler(RegisterHandler, action, messageType, dependencies);
 
 			return this;
@@ -327,12 +327,12 @@ namespace TinyDancer.Consume
 
 				cancel.Register(() =>
 				{
-					var closeTask = _sessionProcessor.CloseAsync();
-
 					if (_blockInterruption)
 					{
-						closeTask.Wait(_blockInterruptionTimeout);
+						_sessionProcessor.StopProcessingAsync().Wait(_blockInterruptionTimeout);
 					}
+
+					_sessionProcessor.CloseAsync();
 				});
 			}
 			else
@@ -359,12 +359,12 @@ namespace TinyDancer.Consume
 
 				cancel.Register(() =>
 				{
-					var closeTask = _messageProcessor.CloseAsync();
-
 					if (_blockInterruption)
 					{
-						closeTask.Wait(_blockInterruptionTimeout);
+						_messageProcessor.StopProcessingAsync().Wait(_blockInterruptionTimeout);
 					}
+
+					_messageProcessor.CloseAsync();
 				});
 			}
 		}
@@ -492,7 +492,7 @@ namespace TinyDancer.Consume
 			}
 		}
 
-		object? Deserialize(ServiceBusReceivedMessage message, Type type)
+		object Deserialize(ServiceBusReceivedMessage message, Type type)
 		{
 			return message.Body.Deserialize(type);
 		}

@@ -7,14 +7,13 @@ namespace TinyDancer.Publish
 {
 	public static class SerializationExtensions
 	{
-		public static byte[] Serialized<T>(this T message)
+		public static string Serialized<T>(this T message) where T : notnull
 		{
 			var settings = new JsonSerializerOptions();
 
 			settings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 			
-			var json = JsonSerializer.Serialize<T>(message, settings);
-			return Encoding.UTF8.GetBytes(json);
+			return JsonSerializer.Serialize((object)message, settings);
 		}
 	}
 }

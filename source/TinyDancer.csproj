@@ -1,38 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<Authors>John Knoop</Authors>
 		<Company />
-		<Description>TinyDancer is a high-level abstraction layer on top of the Azure Service Bus client.</Description>
-		<PackageTags>azure servicebus service bus message queue</PackageTags>
+		<Description>TinyDancer is a high-level abstraction layer on top of the ServiceBusProcessor.</Description>
+		<PackageTags>azure servicebus service bus message queue topic</PackageTags>
 		<PackageProjectUrl>https://github.com/johnknoop/TinyDancer</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/johnknoop/TinyDancer</RepositoryUrl>
-		<Version>4.0.0-preview2</Version>
-		<PackageReleaseNotes>New feature:
- - Release message prematurely (as in before the message handling has completed)
-
-Breaking changes:
- - Upgraded to .NET Standard 2.1.
- - Renamed method ConfigureCulture -&gt; ConsumeMessagesInSameCultureAsSentIn</PackageReleaseNotes>
+		<Version>4.0.0</Version>
+		<PackageReleaseNotes></PackageReleaseNotes>
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.12.0" />
-		<PackageReference Include="NodaTime" Version="3.1.6" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
+		<PackageReference Include="NodaTime" Version="[3.0,4.0)" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
 		<PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.0.0" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
-	    <HintPath>..\..\..\Users\john\.nuget\packages\microsoft.extensions.dependencyinjection.abstractions\2.2.0\lib\netstandard2.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
-	  </Reference>
-	  <Reference Include="Microsoft.Extensions.Hosting.Abstractions">
-	    <HintPath>..\..\..\Users\john\.nuget\packages\microsoft.extensions.hosting.abstractions\2.2.0\lib\netstandard2.0\Microsoft.Extensions.Hosting.Abstractions.dll</HintPath>
-	  </Reference>
-	</ItemGroup>
 
 </Project>

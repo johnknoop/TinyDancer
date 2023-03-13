@@ -10,14 +10,14 @@ namespace TinyDancer.Consume
 {
 	public static class SerializationExtensions
 	{
-		public static object? Deserialize(this BinaryData data, Type type)
+		public static object Deserialize(this BinaryData data, Type type)
 		{
 			try
 			{
 				var settings = new JsonSerializerOptions();
 				settings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
-				return JsonSerializer.Deserialize(data.ToStream(), type, settings);
+				return JsonSerializer.Deserialize(data.ToStream(), type, settings) ?? throw new DeserializationFailedException("Deserialization returned null");
 			}
 			catch (Exception ex)
 			{

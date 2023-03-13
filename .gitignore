@@ -2,9 +2,11 @@ source/\.vs/
 source/bin
 source/obj
 
-LocalDev/
+TestConsoleApp/
 
 IntegrationTests/bin
 IntegrationTests/obj
 
 IntegrationTests/Properties/launchSettings.json
+
+.vs/

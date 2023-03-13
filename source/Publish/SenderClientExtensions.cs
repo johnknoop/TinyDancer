@@ -2,8 +2,11 @@ using Azure.Messaging.ServiceBus;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using TinyDancer.DependencyResolution;
 
 namespace TinyDancer.Publish
 {
@@ -11,7 +14,14 @@ namespace TinyDancer.Publish
 	{
         public static async Task PublishAsync<TMessage>(this ServiceBusSender sender, TMessage payload, string? sessionId = null, string? deduplicationIdentifier = null, string? correlationId = null, IDictionary<string, object>? userProperties = null)
 		{
-			var serialized = payload.Serialized();
+			var json = payload.Serialized();
+
+			if (ServiceProviderAccessor.ServiceProvider.Value?.TryGetService<DiagnosticsWriter>(out var logger) ?? false)
+			{
+				await logger.Writer.WriteLineAsync($"Serialized message of type {typeof(TMessage)}: {json}");
+			}
+
+			var serialized = Encoding.UTF8.GetBytes(json);
 
 			var message = new ServiceBusMessage(serialized)
 			{
