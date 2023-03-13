@@ -1,19 +1,27 @@
 TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/) with some convenient features such as handling multiple types of messages, dependency injection, decoupled fault tolerance etc.
 
+### Major features
+TinyDancer provides a simple yet powerful interface to a number of important concerns:
+
+- Prevention of partial/unacknowledged message handling through graceful shutdown
+- Decoupling of application logic from servicebus concepts when it comes to fault tolerance (see [exception handling](#exception-handling))
+- Dependency resolution
+
 ## Install
     PM> Install-Package TinyDancer
-    
-### Consume different types of messages from the same queue/topic
-```csharp
-var client = new QueueClient(...); // or SubscriptionClient
 
-client.Configure()
-    .HandleMessage<SeatsReserved>(seatsReserved => { 
+### Consume different types of messages from the same queue/subscription
+```csharp
+var messageProcessor = serviceBusClient.CreateProcessor(...)
+
+messageProcessor
+	.ConfigureTinyDancer()
+    .HandleMessage<SeatsReserved>(seatsReserved => {
         // A user reserved one or more seats
         SaveReservation(...);
         LockSeats(...);
     })
-    .HandleMessage<SeatsDiscarded>(async seatsDiscarded => { 
+    .HandleMessage<SeatsDiscarded>(async seatsDiscarded => {
         // A user has discarded a reservation
         await RemoveReservation(...);
         await FreeUpSeats(...);
@@ -22,7 +30,7 @@ client.Configure()
     .OnUnrecognizedMessageType(x => x.Abandon()) // Let a different consumer handle this one
     .CatchUnhandledExceptions(x => x.Deadletter(),
         (msg, ex) => _logger.Error($"Error while processing message {msg.Id}", ex))
-    .Subscribe();
+    .SubscribeAsync();
 ```
 
 ### Publish a message
@@ -40,34 +48,29 @@ await client.PublishAsync(
     );
 ```
 
-### Why?
-Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any queues or topics. You need to provision those yourself using ARM templates or Azure CLI like any other cloud resources, alternatively using [ServiceBusExplorer](https://github.com/paolosalvatori/ServiceBusExplorer). Once you have a `QueueClient` or `SubscriptionClient`, TinyDancer provides a simple yet powerful interface to a number of important concerns:
+## Dependencies
 
-- Serialization and deserialization (JSON and MessagePack are supported)
-- Prevention of partial/unacknowledged message handling
-- Decoupling of application logic from servicebus concepts when it comes to fault tolerance (see [exception handling](#exception-handling))
-- Dependency resolution
+| Major version | Framework requirement | Dependencies              |
+|---------------|-----------------------|---------------------------|
+| 4.x           | .NET 6                | NodaTime                  |
+| 3.x           | .NET Standard 2.1     | Newtonsoft.Json, NodaTime |
 
-# Documentation
+## Documentation
 
-#### Receiving messages
-- [Consume by type](#multiplexing)
-- [Subscribe to all](#subscribe-to-all)
-- [Exception handling](#exception-handling)
-    - Retry (abandon) / Deadletter / Complete
-    - [Callbacks](#callbacks)
-- [Dependency injection](#dependency-injection)
-- [Sessions](#sessions)
-- [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
-- [Graceful shutdown](#graceful-shutdown)
-- [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
-- [Release message early](#release-message-early)
+- [Receiving messages](#receiving-messages)
+	- [Consume by type](#multiplexing)
+	- [Subscribe to all](#subscribe-to-all)
+	- [Exception handling](#exception-handling)
+		- Retry (abandon) / Deadletter / Complete
+		- [Callbacks](#callbacks)
+	- [Dependency injection](#dependency-injection)
+	- [Sessions](#sessions)
+	- [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
+	- [Graceful shutdown](#graceful-shutdown)
+	- [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
+	- [Release message early](#release-message-early)
+- [Sending messages](#sending-messages-1)
 
-#### [Sending messages](#sending-messages-1)
-- PublishMany
-- Deduplication
-- Compression
-- Correlation id
 
 ## Receiving Messages
 
@@ -76,7 +79,7 @@ Unlike frameworks such as Rebus and MassTransit, TinyDancer will not create any 
 When you publish a message using TinyDancer, the message type is added to the metadata of the message. Thus, on the receiving end, handling messages of different types is as easy as:
 
 ```csharp
-client.HandleMessage<TMessage>((TMessage msg) => { /* ... */})
+client.HandleMessage<TMessage>(async (TMessage msg) => { /* ... */})
 ```
 
 #### A note about messages types...
@@ -119,42 +122,28 @@ Note that these exception handlers only will be triggered when an exception occu
 
 ### Dependency injection
 
-TinyDancer can be integrated with `Microsoft.Extensions.DependencyInjection`. Just pass an instance of `IServiceCollection` to the `RegisterDependencies` method, and then you can add parameters to your handler functions:
+TinyDancer can be integrated with `Microsoft.Extensions.DependencyInjection`. Just call `AddTinyDancer()` on your service collection:
 
 ```csharp
 public class Startup
 {
     public void ConfigureServices(IServiceCollection services)
     {
-        queueClient.Configure()
-            .RegisterDependencies(services)
-            // Inject dependencies like this:
-            .HandleMessage<CarPurchased, IRepository<Car>>(async (message, carRepo) =>
-            {
-                await carRepo.InsertAsync(new Car(message.LicensePlateNumber));
-            })
-            // Or like this:
-            .HandleMessage(async (CarPurchased message, IRepository<Car> carRepo, ILogger logger) =>
-            {
-                await carRepo.InsertAsync(new Car(message.LicensePlateNumber));
-            })
-            .Subscribe();
+        services.AddTinyDancer();
     }
 }
 ```
 
-The first parameter must always be the message, and all subsequent parameters will be resolved.
-
 A new dependency scope is created and disposed for each message that is handled, so any dependencies registered with `AddScoped` will be resolved and disposed correctly.
 
-If you need to use information from your messages as part of your service resolution, a `Message` is added to your `IServiceCollection` before the handler is called, and can be used like this:
+If you need to use information from your messages as part of your service resolution, a `ServiceBusReceivedMessage` is added to your `IServiceCollection` before the handler is called, and can be used like this:
 
 ```csharp
 services.AddScoped<IRepository<Animal>>(provider =>
 {
     // In order to resolve IRepository<Animal>, we need the Tenant key from the incoming message:
-    var userProperties = provider.GetRequiredService<Message>().UserProperties;
-    return new Repository<Animal>(userProperties["TenantKey"]);
+    var appProperties = provider.GetRequiredService<ServiceBusReceivedMessage>().ApplicationProperties;
+    return new Repository<Animal>(appProperties["TenantKey"]);
 });
 ```
 
@@ -179,16 +168,18 @@ There's also an overload of this method that takes a callback, if you want to do
 Both `OnUnrecognizedMessageType` and `OnDeserializationFailed` offer the choice to `Abandon`, `Deadletter` or `Complete` the message.
 
 ### Graceful shutdown
-If you want your message handling to be drained and terminated gracefully, just like HTTP requests in an ASP.NET application, then use the `SubscribeUntilShutdownAsync` method, which accepts a `CancellationToken` representing application shutdown.
+Passing a `CancellationToken` representing application shutdown as argument to `SubscribeAsync` will ensure that no more messages are received once application termination has begun.
+
+If you also want to ensure that all ongoing message handlers are allowed to finish before exiting, then pass `true` as argument for the `blockInterruption` parameter of the same method. This can be useful if you're code doesn't handle cancellation, or if you have multiple side-effects which all need to complete atomically, and there is no support for transactions (such as writing to the file system).
 
 The simplest way is to write your code as a [hosted service](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-2.2&tabs=visual-studio), extending the [BackgroundService](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.hosting.backgroundservice?view=aspnetcore-2.2) class:
 
 ```csharp
 public class MyMessageHandler : BackgroundService
 {
-    private readonly IReceiverClient _serviceBusClient;
+    private readonly ServiceBusClient _serviceBusClient;
 
-    public MyMessageHandler(IReceiverClient serviceBusClient)
+    public MyMessageHandler(ServiceBusClient serviceBusClient)
     {
         _serviceBusClient = serviceBusClient;
     }
@@ -196,9 +187,13 @@ public class MyMessageHandler : BackgroundService
     public override Task ExecuteAsync(CancellationToken applicationStopping)
     {
         return _serviceBusClient
-            .Configure()
-            // Set up your message handling etc
-            .SubscribeUntilShutdownAsync(applicationStopping);
+			.CreateMessageProcessor(...)
+            .ConfigureTinyDancer()
+            // Set up your message handling etc here
+            .SubscribeAsync(
+				blockInterruption: true,
+				cancellationToken: applicationStopping
+			);
     }
 }
 ```
@@ -206,37 +201,37 @@ This way, TinyDancer will be notified when application shutdown is initiated. It
 
 ### Receive message in same culture as sent in
 
-TinyDancer can set the thread culture of the thread that handles a message to the same culture as that of the thread that published the message, impacting things like number and date formatting. This is useful in when sending message between services in a multi-tenant system where the tenants may have different cultural preferences. 
+TinyDancer can set the thread culture of the thread that handles a message to the same culture as that of the thread that published the message, impacting things like number and date formatting. This is useful in when sending message between services in a multi-tenant system where the tenants may have different cultural preferences.
 
 Use `.ConsumeMessagesInSameCultureAsSentIn()` to enable this feature.
 
 ### Release message early
 
-If your message handling results in a really time-consuming operation, and you want to release the message (meaning complete, abandon or deadletter it) before the operation has completed, you can use the `MessageReleaser` helper. Just declare it as a dependency in your handler and call it whenever you feel like it:
+If your message handling results in a really time-consuming operation, and you want to settle the message (meaning complete, abandon or deadletter it) before the operation has completed, you can use the `MessageSettler` helper. Just declare it as a dependency in your handler and call it whenever you feel like it:
 
 ```cs
 messageReceiver.Configure()
     //...
-	.HandleMessage<MyMessage, MessageReleaser>(async (msg, releaser) =>
+	.HandleMessage<MyMessage, MessageSettler>(async (msg, settler) =>
 	{
-		await releaser.CompleteAsync();
+		await settler.CompleteAsync();
 
 		// Do more work...
 	})
 ```
 
-Please note that releasing a message early does not mean the next message in the queue will get consumed right away. The `MaxConcurrentSessions`/`MaxConcurrentMessages` settings limit the number of messages in process concurrently, and a message is still considered in process until the handler completes, regardless of whether or not you release it early.
+Please note that settling a message early does not mean the next message in the queue will get consumed right away. The `MaxConcurrentSessions`/`MaxConcurrentMessages` settings limit the number of messages in process concurrently, and a message is still considered in process until the handler completes, regardless of whether or not you settle it early.
 
 ## Sending messages
 
-TinyDancer provides a couple of extension methods to `ISenderClient` (`IQueueClient` and `ITopicClient` both implement this interface).
+TinyDancer provides a couple of extension methods to `ServiceBusSender`.
 
 ### Publish a single message
 
 #### Signature:
 ```csharp
 Task PublishAsync<TMessage>(
-      this ISenderClient client,
+      this ServiceBusSender sender,
       TMessage payload,
       string sessionId = null,
       string deduplicationIdentifier = null,
@@ -247,7 +242,7 @@ Task PublishAsync<TMessage>(
 #### Example:
 
 ```csharp
-await client.PublishAsync(
+await sender.PublishAsync(
     payload: myMessage,
     sessionId: sessionId, // Optional
     deduplicationIdentifier: deduplicationIdentifier, // Optional
@@ -260,7 +255,7 @@ await client.PublishAsync(
 #### Signature:
 ```csharp
 Task PublishAllAsync<TMessage>(
-      this ISenderClient client,
+      this ServiceBusSender sender,
       IList<TMessage> payloads,
       string sessionId = null,
       Func<TMessage, string> deduplicationIdentifier = null,
@@ -271,7 +266,7 @@ Task PublishAllAsync<TMessage>(
 #### Example:
 
 ```csharp
-await client.PublishAllAsync(
+await sender.PublishAllAsync(
     payloads: messages,
     sessionId: sessionId, // Optional
     deduplicationIdentifier: deduplicationIdentifier,  // Optional
