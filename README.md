@@ -15,7 +15,7 @@ TinyDancer provides a simple yet powerful interface to a number of important con
 var messageProcessor = serviceBusClient.CreateProcessor(...)
 
 messageProcessor
-	.ConfigureTinyDancer()
+    .ConfigureTinyDancer()
     .HandleMessage<SeatsReserved>(seatsReserved => {
         // A user reserved one or more seats
         SaveReservation(...);
@@ -58,17 +58,17 @@ await client.PublishAsync(
 ## Documentation
 
 - [Receiving messages](#receiving-messages)
-	- [Consume by type](#multiplexing)
-	- [Subscribe to all](#subscribe-to-all)
-	- [Exception handling](#exception-handling)
-		- Retry (abandon) / Deadletter / Complete
-		- [Callbacks](#callbacks)
-	- [Dependency injection](#dependency-injection)
-	- [Sessions](#sessions)
-	- [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
-	- [Graceful shutdown](#graceful-shutdown)
-	- [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
-	- [Release message early](#release-message-early)
+    - [Consume by type](#multiplexing)
+    - [Subscribe to all](#subscribe-to-all)
+    - [Exception handling](#exception-handling)
+        - Retry (abandon) / Deadletter / Complete
+        - [Callbacks](#callbacks)
+    - [Dependency injection](#dependency-injection)
+    - [Sessions](#sessions)
+    - [Handle malformed or unknown messages](#handle-malformed-or-unknown-messages)
+    - [Graceful shutdown](#graceful-shutdown)
+    - [Receive message in same culture as when sent](#receive-message-in-same-culture-as-when-sent)
+    - [Release message early](#release-message-early)
 - [Sending messages](#sending-messages-1)
 
 
@@ -187,13 +187,13 @@ public class MyMessageHandler : BackgroundService
     public override Task ExecuteAsync(CancellationToken applicationStopping)
     {
         return _serviceBusClient
-			.CreateMessageProcessor(...)
+            .CreateMessageProcessor(...)
             .ConfigureTinyDancer()
             // Set up your message handling etc here
             .SubscribeAsync(
-				blockInterruption: true,
-				cancellationToken: applicationStopping
-			);
+                blockInterruption: true,
+                cancellationToken: applicationStopping
+            );
     }
 }
 ```
@@ -212,12 +212,12 @@ If your message handling results in a really time-consuming operation, and you w
 ```cs
 messageReceiver.Configure()
     //...
-	.HandleMessage<MyMessage, MessageSettler>(async (msg, settler) =>
-	{
-		await settler.CompleteAsync();
+    .HandleMessage<MyMessage, MessageSettler>(async (msg, settler) =>
+    {
+        await settler.CompleteAsync();
 
-		// Do more work...
-	})
+        // Do more work...
+    })
 ```
 
 Please note that settling a message early does not mean the next message in the queue will get consumed right away. The `MaxConcurrentSessions`/`MaxConcurrentMessages` settings limit the number of messages in process concurrently, and a message is still considered in process until the handler completes, regardless of whether or not you settle it early.
