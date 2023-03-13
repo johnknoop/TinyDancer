@@ -1,4 +1,4 @@
-TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Microsoft.Azure.ServiceBus/) with some convenient features such as handling multiple types of messages, dependency injection, decoupled fault tolerance etc.
+TinyDancer is a high-level abstraction layer on top of the [Azure Service Bus client](https://www.nuget.org/packages/Azure.Messaging.ServiceBus/) with some convenient features such as handling multiple types of messages, dependency injection, decoupled fault tolerance etc.
 
 ### Major features
 TinyDancer provides a simple yet powerful interface to a number of important concerns:
@@ -52,8 +52,8 @@ await client.PublishAsync(
 
 | Major version | Framework requirement | Dependencies              |
 |---------------|-----------------------|---------------------------|
-| 4.x           | .NET 6                | NodaTime                  |
-| 3.x           | .NET Standard 2.1     | Newtonsoft.Json, NodaTime |
+| 4.x           | .NET 6                | Azure.Messaging.ServiceBus, NodaTime                  |
+| 3.x           | .NET Standard 2.1     | Microsoft.Azure.ServiceBus, Newtonsoft.Json, NodaTime |
 
 ## Documentation
 
